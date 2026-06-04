@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100;
+    font-family: 'Inter', sans-serif;
+    /* Évite le zoom iOS sur les inputs */
+    -webkit-text-size-adjust: 100%;
+  }
+  h1, h2, h3 {
+    font-family: 'Cinzel', serif;
+  }
+  /* Safe area pour iPhone avec encoche/Dynamic Island */
+  #root {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  .card-grid {
+    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3;
+  }
+  .btn-primary {
+    @apply bg-gold-500 active:bg-gold-600 hover:bg-gold-400 text-gray-950 font-semibold px-4 py-2 rounded-lg transition-colors select-none;
+    /* Taille tactile minimum */
+    min-height: 44px;
+  }
+  .btn-ghost {
+    @apply border border-gray-700 active:border-gray-500 hover:border-gray-500 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors select-none;
+    min-height: 44px;
+  }
+  .input {
+    @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-base text-white placeholder-gray-500 focus:outline-none focus:border-gold-500 transition-colors w-full;
+    /* text-base (16px) évite le zoom auto iOS */
+    font-size: 16px;
+  }
+  .badge {
+    @apply text-xs px-2 py-0.5 rounded-full font-medium;
+  }
+  /* Padding page avec espace pour la bottom nav mobile */
+  .page {
+    @apply max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 sm:pb-6;
+  }
+}
