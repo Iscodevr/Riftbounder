@@ -21,6 +21,7 @@ router.post("/register", async (req, res) => {
   } catch (e) {
     if (e.message?.includes("UNIQUE") || e.code === "23505")
       return res.status(409).json({ error: "Email déjà utilisé" });
+    console.error("register error:", e.message);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
