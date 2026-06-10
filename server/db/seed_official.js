@@ -51,24 +51,25 @@ function buildCard(c, setCode, setInfo, frByCode) {
   const types = c.cardType?.type || [];
   if (types.length === 0) return null; // tokens / cards without a card type
 
-  // publicCode looks like "OGN-007a/298", "SFD-224*/221" or "UNL-T01" (tokens, no "/denom")
+  // publicCode looks like "OGN-007a/298", "SFD-224*/221" or "UNL-T01" (token battlefields, no "/denom")
   const m = c.publicCode.match(new RegExp(`^${setCode}-(\\S+)\\/(\\d+)$`));
-  if (!m) return null;
+  const tokenMatch = !m && c.publicCode.match(new RegExp(`^${setCode}-(T\\d+)$`));
+  if (!m && !(tokenMatch && types.some((t) => t.id === "battlefield"))) return null;
 
-  const code = m[1];
-  const denom = m[2];
+  const code = m ? m[1] : tokenMatch[1];
+  const denom = m ? m[2] : null;
   const slug = code.replace(/\*/g, "alt").toLowerCase();
 
   const cardType = types.map((t) => t.id.charAt(0).toUpperCase() + t.id.slice(1)).join(";");
   const domains = (c.domain?.values || []).map((v) => v.label).filter((d) => d !== "Colorless");
   const domain = domains.length ? domains.join(";") : null;
-  const number = `${code}/${denom}`;
+  const number = denom ? `${code}/${denom}` : code;
 
   const fr = frByCode[c.publicCode];
   const baseImg = c.cardImage?.url || null;
 
   return {
-    id: `${setInfo.id}-${slug}-${denom}`,
+    id: denom ? `${setInfo.id}-${slug}-${denom}` : `${setInfo.id}-${slug}`,
     number,
     name: c.name,
     name_fr: fr ? fr.name : null,
