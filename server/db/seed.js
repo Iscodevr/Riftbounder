@@ -26,7 +26,7 @@ async function seed() {
         clean_name: c.cleanName ?? null,
         rarity: c.rarity ?? null,
         card_type: c.cardType ?? null,
-        domain: c.domain ?? null,
+        domain: c.domain && c.domain !== "None" ? c.domain : null,
         energy_cost: c.energyCost ?? null,
         power_cost: c.powerCost ?? null,
         might: c.might ?? null,

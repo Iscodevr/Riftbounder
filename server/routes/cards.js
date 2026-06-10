@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
     }
     if (set)    { where.push(`set_id = $${i++}`);    params.push(set); }
     if (type)   { where.push(`card_type = $${i++}`); params.push(type); }
-    if (domain) { where.push(`domain = $${i++}`);    params.push(domain); }
+    if (domain) { where.push(`domain ILIKE $${i++}`); params.push(`%${domain}%`); }
     if (rarity) { where.push(`rarity = $${i++}`);    params.push(rarity); }
 
     const w = where.join(" AND ");
@@ -49,9 +49,10 @@ router.get("/filters", async (_req, res) => {
       db.query("SELECT DISTINCT domain FROM cards WHERE domain IS NOT NULL ORDER BY domain"),
       db.query("SELECT DISTINCT rarity FROM cards WHERE rarity IS NOT NULL ORDER BY rarity"),
     ]);
+    const domains = [...new Set(d.rows.flatMap((r) => r.domain.split(";")))].sort();
     res.json({
-      types:    t.rows.map((r) => r.card_type),
-      domains:  d.rows.map((r) => r.domain),
+      types: t.rows.map((r) => r.card_type),
+      domains,
       rarities: r.rows.map((r) => r.rarity),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

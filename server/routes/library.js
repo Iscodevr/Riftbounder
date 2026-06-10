@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
     if (q)      { where.push(`(c.name ILIKE $${i} OR c.description ILIKE $${i+1})`); params.push(`%${q}%`, `%${q}%`); i += 2; }
     if (set)    { where.push(`c.set_id = $${i++}`);    params.push(set); }
     if (type)   { where.push(`c.card_type = $${i++}`); params.push(type); }
-    if (domain) { where.push(`c.domain = $${i++}`);    params.push(domain); }
+    if (domain) { where.push(`c.domain ILIKE $${i++}`); params.push(`%${domain}%`); }
     if (rarity) { where.push(`c.rarity = $${i++}`);    params.push(rarity); }
 
     const w = where.join(" AND ");
