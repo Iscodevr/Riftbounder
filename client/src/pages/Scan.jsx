@@ -241,7 +241,7 @@ export default function Scan() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: "environment", width: { ideal: 1080 }, height: { ideal: 1440 } },
       });
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
@@ -266,11 +266,6 @@ export default function Scan() {
     if (scanningRef.current) return;
     if (!videoRef.current?.srcObject) return;
     if (videoRef.current.readyState < 2) return;
-    if (!cardDetectedRef.current) {
-      setOcrStatus("Aligne la carte dans le cadre…");
-      setCandidates([]);
-      return;
-    }
 
     scanningRef.current = true;
     setOcrStatus("Analyse…");
@@ -409,7 +404,7 @@ export default function Scan() {
   const startLoop = () => {
     setAutoActive(true);
     setCandidates([]);
-    setOcrStatus(cardDetectedRef.current ? "En attente de carte…" : "Aligne la carte dans le cadre…");
+    setOcrStatus("En attente de carte…");
     loopRef.current = setInterval(doScan, SCAN_INTERVAL_MS);
   };
 
@@ -448,7 +443,7 @@ export default function Scan() {
       {tab === "scan" && (
         <div className="space-y-4">
           {/* Viewfinder */}
-          <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-video border border-gray-800">
+          <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-[3/4] max-h-[70vh] mx-auto border border-gray-800">
             <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
 
             {!streaming && (
