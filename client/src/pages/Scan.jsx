@@ -7,6 +7,14 @@ import CardModal from "../components/CardModal";
 const SCAN_INTERVAL_MS = 2500;
 const COOLDOWN_MS = 6000;
 
+function norm(s = "") {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Canvas plein + contraste
 function preprocessCanvas(video, canvas) {
   const ctx = canvas.getContext("2d");
@@ -169,6 +177,11 @@ export default function Scan() {
         if (card.id !== lastId || now - lastTs > COOLDOWN_MS) {
           setOcrStatus(`✅ ${card.name} — numéro détecté`);
           await doAdd(card, true);
+          if (!card.name_fr) {
+            const frLine = ocrText.split("\n").map((l) => l.trim())
+              .find((l) => l.length > 3 && !/\d/.test(l) && norm(l) !== norm(card.name));
+            if (frLine) setPendingFrName({ card, rawText: frLine });
+          }
           setCandidates([]);
         } else {
           setOcrStatus(`⏳ ${card.name} — cooldown actif`);
