@@ -460,8 +460,8 @@ function CandidateCard({ card, quantity, score, onAdd, onAddExtra, onClick }) {
     <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gold-500/60 transition-colors">
       <div className="cursor-pointer relative" onClick={onClick}>
         {card.image_small
-          ? <img src={card.image_small} alt={card.name} className="w-full aspect-[2.5/3.5] object-cover" />
-          : <div className="w-full aspect-[2.5/3.5] bg-gray-800 flex items-center justify-center text-gray-600 text-xs p-2">{card.name}</div>
+          ? <img src={card.image_small} alt={card.name} className={`w-full ${card.card_type === "Battlefield" ? "aspect-[3.5/2.5]" : "aspect-[2.5/3.5]"} object-cover`} />
+          : <div className={`w-full ${card.card_type === "Battlefield" ? "aspect-[3.5/2.5]" : "aspect-[2.5/3.5]"} bg-gray-800 flex items-center justify-center text-gray-600 text-xs p-2`}>{card.name}</div>
         }
         {score != null && (
           <div className="absolute top-1.5 left-1.5 bg-black/70 text-xs text-gold-400 px-1.5 py-0.5 rounded-full">

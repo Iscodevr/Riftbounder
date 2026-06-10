@@ -24,7 +24,7 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
       onClick={() => onClick?.(card)}
     >
       {/* Image */}
-      <div className="aspect-[2.5/3.5] bg-gray-800 overflow-hidden">
+      <div className={`${card.card_type === "Battlefield" ? "aspect-[3.5/2.5]" : "aspect-[2.5/3.5]"} bg-gray-800 overflow-hidden`}>
         {card.image_small ? (
           <img
             src={card.image_small}
