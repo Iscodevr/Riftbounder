@@ -1,6 +1,9 @@
 import { useEffect } from "react";
+import { useLanguage, cardName } from "../hooks/useLanguage";
 
 export default function CardModal({ card, onClose, onAdd, onRemove, quantity }) {
+  const { lang } = useLanguage();
+
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -8,6 +11,9 @@ export default function CardModal({ card, onClose, onAdd, onRemove, quantity }) 
   }, [onClose]);
 
   if (!card) return null;
+
+  const name = cardName(card, lang);
+  const altName = lang === "fr" ? card.name : card.name_fr;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70"
@@ -26,7 +32,7 @@ export default function CardModal({ card, onClose, onAdd, onRemove, quantity }) 
           {/* Image */}
           <div className="w-full sm:w-44 shrink-0 flex justify-center">
             {card.image_large
-              ? <img src={card.image_large} alt={card.name} className="w-40 sm:w-full rounded-xl" />
+              ? <img src={card.image_large} alt={name} className="w-40 sm:w-full rounded-xl" />
               : <div className="w-40 aspect-[2.5/3.5] bg-gray-800 rounded-xl flex items-center justify-center text-gray-500 text-sm">Pas d'image</div>
             }
           </div>
@@ -35,8 +41,8 @@ export default function CardModal({ card, onClose, onAdd, onRemove, quantity }) 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-white leading-tight">{card.name_fr || card.name}</h2>
-                {card.name_fr && <p className="text-sm text-gray-500">{card.name}</p>}
+                <h2 className="text-lg sm:text-xl font-bold text-white leading-tight">{name}</h2>
+                {altName && <p className="text-sm text-gray-500">{altName}</p>}
               </div>
               <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none p-1 shrink-0">✕</button>
             </div>

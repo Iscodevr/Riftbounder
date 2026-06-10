@@ -41,6 +41,6 @@
   }
   /* Padding page avec espace pour la bottom nav mobile */
   .page {
-    @apply max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 sm:pb-6;
+    @apply max-w-[1800px] mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 sm:pb-6;
   }
 }

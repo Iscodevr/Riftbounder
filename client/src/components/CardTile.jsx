@@ -1,3 +1,5 @@
+import { useLanguage, cardName } from "../hooks/useLanguage";
+
 const RARITY_COLORS = {
   Common: "bg-gray-600 text-gray-200",
   Uncommon: "bg-green-800 text-green-200",
@@ -20,9 +22,11 @@ function isLandscapeImage(url) {
 }
 
 export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
+  const { lang } = useLanguage();
   const rarityClass = RARITY_COLORS[card.rarity] || "bg-gray-700 text-gray-300";
   const domainClass = DOMAIN_COLORS[card.domain] || "text-gray-400";
   const landscape = isLandscapeImage(card.image_small);
+  const name = cardName(card, lang);
 
   return (
     <div
@@ -34,13 +38,13 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
         {card.image_small ? (
           <img
             src={card.image_small}
-            alt={card.name}
+            alt={name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs text-center p-2">
-            {card.name}
+            {name}
           </div>
         )}
       </div>
@@ -54,7 +58,7 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
 
       {/* Info */}
       <div className="p-2">
-        <p className="text-xs font-semibold text-white truncate">{card.name}</p>
+        <p className="text-xs font-semibold text-white truncate">{name}</p>
         <div className="flex items-center justify-between mt-1">
           <span className={`text-xs ${domainClass}`}>{card.domain || card.card_type}</span>
           {card.rarity && (

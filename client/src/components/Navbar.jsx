@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../hooks/useLanguage";
 
 const LINKS = [
   { to: "/", label: "Catalogue", icon: "🗂️" },
@@ -11,6 +12,7 @@ const LINKS = [
 export default function Navbar() {
   const { pathname } = useLocation();
   const { user, logout } = useAuth();
+  const { lang, toggleLang } = useLanguage();
 
   return (
     <>
@@ -32,6 +34,10 @@ export default function Navbar() {
           </div>
           {user && (
             <div className="flex items-center gap-3 shrink-0">
+              <button onClick={toggleLang}
+                className="text-xs font-semibold text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-md px-2 py-1 transition-colors">
+                {lang === "fr" ? "🇫🇷 FR" : "🇬🇧 EN"}
+              </button>
               <span className="text-sm text-gray-400 max-w-36 truncate">{user.email}</span>
               <button onClick={logout} className="text-sm text-gray-500 hover:text-white transition-colors">
                 Déconnexion
@@ -48,9 +54,15 @@ export default function Navbar() {
             RIFTBOUND
           </span>
           {user && (
-            <button onClick={logout} className="text-xs text-gray-500 active:text-white py-1 px-2">
-              Déco
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={toggleLang}
+                className="text-xs font-semibold text-gray-300 active:text-white bg-gray-800 rounded-md px-2 py-1">
+                {lang === "fr" ? "🇫🇷 FR" : "🇬🇧 EN"}
+              </button>
+              <button onClick={logout} className="text-xs text-gray-500 active:text-white py-1 px-2">
+                Déco
+              </button>
+            </div>
           )}
         </div>
       </nav>

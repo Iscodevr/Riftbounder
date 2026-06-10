@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { LanguageProvider } from "./hooks/useLanguage";
 import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import Catalogue from "./pages/Catalogue";
@@ -34,7 +35,9 @@ function Layout() {
 export default function App() {
   return (
     <AuthProvider>
-      <Layout />
+      <LanguageProvider>
+        <Layout />
+      </LanguageProvider>
     </AuthProvider>
   );
 }
