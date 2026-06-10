@@ -192,13 +192,4 @@ router.post("/", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/name-fr", async (req, res) => {
-  const { card_id, name_fr } = req.body;
-  if (!card_id || !name_fr) return res.status(400).json({ error: "card_id et name_fr requis" });
-  try {
-    await db.query("UPDATE cards SET name_fr = $1 WHERE id = $2", [name_fr.trim(), card_id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 module.exports = router;

@@ -65,10 +65,9 @@ export default function Library() {
     <div className="page">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Ma collection</h1>
-        <span className="text-sm text-gray-500">{total} cartes</span>
       </div>
 
-      <Filters filters={filters} values={params} onChange={setParams} />
+      <Filters filters={filters} values={params} onChange={setParams} total={total} />
 
       {cards.length === 0 ? (
         <div className="text-center py-20 text-gray-500">

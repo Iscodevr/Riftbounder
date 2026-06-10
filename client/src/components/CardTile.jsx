@@ -9,11 +9,11 @@ const RARITY_COLORS = {
 
 const DOMAIN_COLORS = {
   Fury: "text-red-400",
-  Valor: "text-yellow-400",
-  Cunning: "text-green-400",
-  Mystic: "text-blue-400",
-  Void: "text-purple-400",
-  Tech: "text-cyan-400",
+  Calm: "text-emerald-400",
+  Mind: "text-blue-400",
+  Body: "text-orange-400",
+  Order: "text-yellow-400",
+  Chaos: "text-purple-400",
 };
 
 function isLandscapeImage(url) {
@@ -24,7 +24,7 @@ function isLandscapeImage(url) {
 export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
   const { lang } = useLanguage();
   const rarityClass = RARITY_COLORS[card.rarity] || "bg-gray-700 text-gray-300";
-  const domainClass = DOMAIN_COLORS[card.domain] || "text-gray-400";
+  const domainClass = DOMAIN_COLORS[card.domain?.split(";")[0]] || "text-gray-400";
   const landscape = isLandscapeImage(card.image_small);
   const name = cardName(card, lang);
 

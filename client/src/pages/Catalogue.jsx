@@ -84,10 +84,9 @@ export default function Catalogue() {
     <div className="page">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Catalogue</h1>
-        <span className="text-sm text-gray-500">{total} cartes</span>
       </div>
 
-      <Filters filters={filters} values={params} onChange={setParams} />
+      <Filters filters={filters} values={params} onChange={setParams} total={total} />
 
       {loading ? (
         <div className="text-center text-gray-500 py-20">Chargement…</div>

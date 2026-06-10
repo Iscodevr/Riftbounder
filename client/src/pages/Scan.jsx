@@ -7,14 +7,6 @@ import CardModal from "../components/CardModal";
 const SCAN_INTERVAL_MS = 2500;
 const COOLDOWN_MS = 6000;
 
-function norm(s = "") {
-  return s.toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 // Canvas plein + contraste
 function preprocessCanvas(video, canvas) {
   const ctx = canvas.getContext("2d");
@@ -72,8 +64,6 @@ export default function Scan() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selected, setSelected] = useState(null);
-  // Pour apprendre un nom FR après confirmation
-  const [pendingFrName, setPendingFrName] = useState(null); // { card, rawText }
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -150,10 +140,10 @@ export default function Scan() {
       let confidence = numPass.data.confidence;
       let result = await identify(ocrText, confidence);
 
-      // Pas de match par numéro → on retente avec l'image entière (nom + texte, FR+EN)
+      // Pas de match par numéro → on retente avec l'image entière (nom + texte)
       if (result.candidates?.[0]?.matchType !== "number") {
         preprocessCanvas(video, canvas);
-        const fullPass = await Tesseract.recognize(canvas, "fra+eng", { logger: () => {} });
+        const fullPass = await Tesseract.recognize(canvas, "eng", { logger: () => {} });
         ocrText = `${fullPass.data.text}\n${numPass.data.text}`;
         confidence = Math.max(fullPass.data.confidence, confidence);
         result = await identify(ocrText, confidence);
@@ -179,11 +169,6 @@ export default function Scan() {
         if (card.id !== lastId || now - lastTs > COOLDOWN_MS) {
           setOcrStatus(`✅ ${card.name} — numéro détecté`);
           await doAdd(card, true);
-          if (!card.name_fr) {
-            const frLine = ocrText.split("\n").map((l) => l.trim())
-              .find((l) => l.length > 3 && !/\d/.test(l) && norm(l) !== norm(card.name));
-            if (frLine) setPendingFrName({ card, rawText: frLine });
-          }
           setCandidates([]);
         } else {
           setOcrStatus(`⏳ ${card.name} — cooldown actif`);
@@ -201,13 +186,6 @@ export default function Scan() {
         if (card.id !== lastId || now - lastTs > COOLDOWN_MS) {
           setOcrStatus(`✅ ${card.name} (score ${card.score}) — ajout`);
           await doAdd(card, true);
-          // Proposer d'enregistrer le nom FR si non connu et texte OCR différent du nom EN
-          if (!card.name_fr) {
-            const firstLine = ocrText.split("\n").map((l) => l.trim()).find((l) => l.length > 3);
-            if (firstLine && firstLine.toLowerCase() !== card.name.toLowerCase()) {
-              setPendingFrName({ card, rawText: firstLine });
-            }
-          }
           setCandidates([]);
         } else {
           setOcrStatus(`⏳ ${card.name} — cooldown actif`);
@@ -250,21 +228,6 @@ export default function Scan() {
   const addExtra = async (card) => {
     lastAddedRef.current = { id: null, ts: 0 };
     await doAdd(card);
-  };
-
-  const saveFrName = async (card, name_fr) => {
-    try {
-      const base = import.meta.env.VITE_API_URL || "";
-      await fetch(`${base}/api/identify/name-fr`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ card_id: card.id, name_fr }),
-      });
-      setPendingFrName(null);
-      showToast(`✅ Nom FR "${name_fr}" enregistré`);
-    } catch (e) {
-      showToast(`❌ ${e.message}`);
-    }
   };
 
   const startLoop = () => {
@@ -379,24 +342,6 @@ export default function Scan() {
             <p className="text-xs text-center text-gray-600 break-words bg-gray-900 rounded-lg p-2 border border-gray-800">
               🔍 OCR: {ocrDebug}
             </p>
-          )}
-
-          {/* Proposition d'apprendre un nom FR */}
-          {pendingFrName && (
-            <div className="bg-gray-900 border border-gold-500/40 rounded-xl p-4 space-y-2">
-              <p className="text-sm text-gold-400 font-semibold">📚 Apprendre un nom français</p>
-              <p className="text-xs text-gray-400">
-                La carte <strong className="text-white">{pendingFrName.card.name}</strong> a été reconnue.<br />
-                L'OCR a lu : <em className="text-gray-300">"{pendingFrName.rawText}"</em><br />
-                Est-ce le nom français de cette carte ?
-              </p>
-              <div className="flex gap-2">
-                <button onClick={() => saveFrName(pendingFrName.card, pendingFrName.rawText)} className="btn-primary text-xs px-3 py-1.5">
-                  ✅ Oui, sauvegarder
-                </button>
-                <button onClick={() => setPendingFrName(null)} className="btn-ghost text-xs px-3 py-1.5">Non</button>
-              </div>
-            </div>
           )}
 
           {/* Candidats multiples */}

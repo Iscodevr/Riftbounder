@@ -132,9 +132,8 @@ export default function DeckDetail() {
         )
       ) : (
         <>
-          <Filters filters={filters} values={params} onChange={setParams} />
-          <p className="text-sm text-gray-500 mt-2 mb-4">{allTotal} cartes</p>
-          <div className="card-grid">
+          <Filters filters={filters} values={params} onChange={setParams} total={allTotal} />
+          <div className="card-grid mt-4">
             {allCards.map((card) => (
               <CardTile key={card.id} card={card} quantity={deckMap[card.id] || 0} onAdd={addCard} onRemove={deckMap[card.id] ? removeCard : null} onClick={setSelected} />
             ))}
