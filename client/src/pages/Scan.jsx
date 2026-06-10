@@ -6,6 +6,55 @@ import CardModal from "../components/CardModal";
 
 const SCAN_INTERVAL_MS = 2500;
 const COOLDOWN_MS = 6000;
+const DETECT_INTERVAL_MS = 200;
+const DETECT_WIDTH = 320;
+
+// Détecte le plus grand quadrilatère (contour de carte) dans l'image
+function detectCardContour(cv, src) {
+  const gray = new cv.Mat();
+  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+  cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
+  const edges = new cv.Mat();
+  cv.Canny(gray, edges, 50, 150);
+  const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+  cv.dilate(edges, edges, kernel);
+
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+  const minArea = src.rows * src.cols * 0.15;
+  let best = null;
+  let bestArea = 0;
+
+  for (let i = 0; i < contours.size(); i++) {
+    const cnt = contours.get(i);
+    const area = cv.contourArea(cnt);
+    if (area >= minArea) {
+      const peri = cv.arcLength(cnt, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+      if (approx.rows === 4 && area > bestArea) {
+        bestArea = area;
+        if (best) best.delete();
+        best = approx;
+      } else {
+        approx.delete();
+      }
+    }
+    cnt.delete();
+  }
+
+  gray.delete(); edges.delete(); kernel.delete(); contours.delete(); hierarchy.delete();
+
+  if (!best) return null;
+  const points = [];
+  for (let i = 0; i < 4; i++) {
+    points.push({ x: best.intPtr(i, 0)[0], y: best.intPtr(i, 0)[1] });
+  }
+  best.delete();
+  return points;
+}
 
 // Canvas plein + contraste
 function preprocessCanvas(video, canvas) {
@@ -47,7 +96,13 @@ export default function Scan() {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
+  const detectCanvasRef = useRef(null);
   const loopRef = useRef(null);
+  const detectLoopRef = useRef(null);
+  const cvRef = useRef(null);
+  const cardDetectedRef = useRef(false);
+  const detectStreakRef = useRef(0);
   const lastAddedRef = useRef({ id: null, ts: 0 });
   const tesseractRef = useRef(null);
   const scanningRef = useRef(false);
@@ -60,6 +115,7 @@ export default function Scan() {
   const [toast, setToast] = useState("");
   const [ocrStatus, setOcrStatus] = useState("");
   const [ocrDebug, setOcrDebug] = useState(null);
+  const [cardDetected, setCardDetected] = useState(false);
   const [tab, setTab] = useState("scan");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -91,6 +147,97 @@ export default function Scan() {
     return tesseractRef.current;
   };
 
+  const getOpenCV = async () => {
+    if (!cvRef.current) {
+      const mod = await import("@techstark/opencv-js");
+      cvRef.current = await mod.default;
+    }
+    return cvRef.current;
+  };
+
+  // Dessine le contour détecté (ou les coins statiques) sur le canvas overlay
+  const drawOverlay = (points) => {
+    const canvas = overlayCanvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video || !video.videoWidth) return;
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!points) return;
+
+    ctx.lineWidth = Math.max(3, canvas.width * 0.006);
+    ctx.strokeStyle = "#4ade80";
+    ctx.fillStyle = "rgba(74, 222, 128, 0.12)";
+    ctx.beginPath();
+    points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#4ade80";
+    points.forEach((p) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, ctx.lineWidth * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
+
+  const startDetectLoop = async () => {
+    try {
+      const cv = await getOpenCV();
+      if (!detectCanvasRef.current) detectCanvasRef.current = document.createElement("canvas");
+
+      detectLoopRef.current = setInterval(() => {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2 || !video.videoWidth) return;
+
+        const scale = DETECT_WIDTH / video.videoWidth;
+        const w = DETECT_WIDTH;
+        const h = Math.round(video.videoHeight * scale);
+        const dCanvas = detectCanvasRef.current;
+        dCanvas.width = w;
+        dCanvas.height = h;
+        const dCtx = dCanvas.getContext("2d");
+        dCtx.drawImage(video, 0, 0, w, h);
+
+        let src;
+        try {
+          src = cv.imread(dCanvas);
+          const points = detectCardContour(cv, src);
+          src.delete();
+
+          if (points) {
+            detectStreakRef.current = Math.min(detectStreakRef.current + 1, 3);
+          } else {
+            detectStreakRef.current = 0;
+          }
+          const detected = detectStreakRef.current >= 2;
+          cardDetectedRef.current = detected;
+          setCardDetected(detected);
+
+          drawOverlay(points ? points.map((p) => ({ x: p.x / scale, y: p.y / scale })) : null);
+        } catch (e) {
+          src?.delete();
+        }
+      }, DETECT_INTERVAL_MS);
+    } catch (e) {
+      console.error("OpenCV load error:", e);
+    }
+  };
+
+  const stopDetectLoop = () => {
+    clearInterval(detectLoopRef.current);
+    detectLoopRef.current = null;
+    cardDetectedRef.current = false;
+    detectStreakRef.current = 0;
+    setCardDetected(false);
+    const canvas = overlayCanvasRef.current;
+    if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  };
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -99,6 +246,7 @@ export default function Scan() {
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       setStreaming(true);
+      startDetectLoop();
     } catch (e) {
       showToast("❌ Caméra inaccessible : " + e.message);
     }
@@ -106,6 +254,7 @@ export default function Scan() {
 
   const stopCamera = () => {
     stopLoop();
+    stopDetectLoop();
     videoRef.current?.srcObject?.getTracks().forEach((t) => t.stop());
     setStreaming(false);
     setAutoActive(false);
@@ -117,6 +266,11 @@ export default function Scan() {
     if (scanningRef.current) return;
     if (!videoRef.current?.srcObject) return;
     if (videoRef.current.readyState < 2) return;
+    if (!cardDetectedRef.current) {
+      setOcrStatus("Aligne la carte dans le cadre…");
+      setCandidates([]);
+      return;
+    }
 
     scanningRef.current = true;
     setOcrStatus("Analyse…");
@@ -255,7 +409,7 @@ export default function Scan() {
   const startLoop = () => {
     setAutoActive(true);
     setCandidates([]);
-    setOcrStatus("En attente de carte…");
+    setOcrStatus(cardDetectedRef.current ? "En attente de carte…" : "Aligne la carte dans le cadre…");
     loopRef.current = setInterval(doScan, SCAN_INTERVAL_MS);
   };
 
@@ -305,19 +459,24 @@ export default function Scan() {
 
             {streaming && (
               <>
-                {/* Cadre avec coins */}
-                <div className="absolute inset-[10%] pointer-events-none">
-                  {[["top-0 left-0 border-t-4 border-l-4 rounded-tl-lg", "-translate-x-0.5 -translate-y-0.5"],
-                    ["top-0 right-0 border-t-4 border-r-4 rounded-tr-lg", "translate-x-0.5 -translate-y-0.5"],
-                    ["bottom-0 left-0 border-b-4 border-l-4 rounded-bl-lg", "-translate-x-0.5 translate-y-0.5"],
-                    ["bottom-0 right-0 border-b-4 border-r-4 rounded-br-lg", "translate-x-0.5 translate-y-0.5"]
-                  ].map(([cls, tr], i) => (
-                    <div key={i} className={`absolute w-8 h-8 border-gold-400 ${cls} ${tr}`} />
-                  ))}
-                  {autoActive && (
-                    <div className="absolute inset-x-0 top-1/2 h-0.5 bg-gold-400/40 animate-pulse" />
-                  )}
-                </div>
+                {/* Contour de carte détecté en temps réel */}
+                <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+
+                {/* Cadre statique avec coins (visible tant qu'aucune carte n'est détectée) */}
+                {!cardDetected && (
+                  <div className="absolute inset-[10%] pointer-events-none">
+                    {[["top-0 left-0 border-t-4 border-l-4 rounded-tl-lg", "-translate-x-0.5 -translate-y-0.5"],
+                      ["top-0 right-0 border-t-4 border-r-4 rounded-tr-lg", "translate-x-0.5 -translate-y-0.5"],
+                      ["bottom-0 left-0 border-b-4 border-l-4 rounded-bl-lg", "-translate-x-0.5 translate-y-0.5"],
+                      ["bottom-0 right-0 border-b-4 border-r-4 rounded-br-lg", "translate-x-0.5 translate-y-0.5"]
+                    ].map(([cls, tr], i) => (
+                      <div key={i} className={`absolute w-8 h-8 border-gold-400 ${cls} ${tr}`} />
+                    ))}
+                    {autoActive && (
+                      <div className="absolute inset-x-0 top-1/2 h-0.5 bg-gold-400/40 animate-pulse" />
+                    )}
+                  </div>
+                )}
 
                 {/* Statut en bas */}
                 {ocrStatus && (
