@@ -14,9 +14,14 @@ const DOMAIN_COLORS = {
   Tech: "text-cyan-400",
 };
 
+function isLandscapeImage(url) {
+  return !!url && url.includes("cmsassets.rgpub.io");
+}
+
 export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
   const rarityClass = RARITY_COLORS[card.rarity] || "bg-gray-700 text-gray-300";
   const domainClass = DOMAIN_COLORS[card.domain] || "text-gray-400";
+  const landscape = isLandscapeImage(card.image_small);
 
   return (
     <div
@@ -24,7 +29,7 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
       onClick={() => onClick?.(card)}
     >
       {/* Image */}
-      <div className={`${card.card_type === "Battlefield" ? "aspect-[3.5/2.5]" : "aspect-[2.5/3.5]"} bg-gray-800 overflow-hidden`}>
+      <div className={`${landscape ? "aspect-[3.5/2.5]" : "aspect-[2.5/3.5]"} bg-gray-800 overflow-hidden`}>
         {card.image_small ? (
           <img
             src={card.image_small}
