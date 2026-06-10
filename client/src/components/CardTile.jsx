@@ -72,11 +72,10 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
 
       {/* Add/Remove overlay */}
       {(onAdd || onRemove) && (
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-          onClick={(e) => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           {onRemove && (
             <button
-              onClick={() => onRemove(card)}
+              onClick={(e) => { e.stopPropagation(); onRemove(card); }}
               className="w-8 h-8 bg-red-600 hover:bg-red-500 rounded-full text-white font-bold text-lg transition-colors"
             >
               −
@@ -84,7 +83,7 @@ export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
           )}
           {onAdd && (
             <button
-              onClick={() => onAdd(card)}
+              onClick={(e) => { e.stopPropagation(); onAdd(card); }}
               className="w-8 h-8 bg-gold-500 hover:bg-gold-400 rounded-full text-gray-950 font-bold text-lg transition-colors"
             >
               +
