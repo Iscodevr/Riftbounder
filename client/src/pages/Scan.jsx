@@ -121,6 +121,15 @@ export default function Scan() {
     setOcrStatus("");
   };
 
+  const identify = async (text, confidence) => {
+    const base = import.meta.env.VITE_API_URL || "";
+    return fetch(`${base}/api/identify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, confidence }),
+    }).then((r) => r.json());
+  };
+
   const doScan = useCallback(async () => {
     if (scanningRef.current) return;
     if (!videoRef.current?.srcObject) return;
@@ -134,30 +143,23 @@ export default function Scan() {
       const canvas = canvasRef.current;
       const video = videoRef.current;
 
-      // Passe unique : image entière avec prétraitement
-      preprocessCanvas(video, canvas);
-      const { data } = await Tesseract.recognize(canvas, "fra+eng", { logger: () => {} });
+      // Passe 1 : zone du numéro (bas de carte) — peu de bruit, match fiable
+      cropBottom(video, canvas);
+      const numPass = await Tesseract.recognize(canvas, "eng", { logger: () => {} });
+      let ocrText = numPass.data.text;
+      let confidence = numPass.data.confidence;
+      let result = await identify(ocrText, confidence);
 
-      // Score de confiance global Tesseract (0-100)
-      const confidence = data.confidence;
-
-      // Si confiance < 30% → pas de carte visible, on ne fait rien
-      if (confidence < 30) {
-        setOcrStatus("Pas de texte lisible…");
-        setCandidates([]);
-        return;
+      // Pas de match par numéro → on retente avec l'image entière (nom + texte, FR+EN)
+      if (result.candidates?.[0]?.matchType !== "number") {
+        preprocessCanvas(video, canvas);
+        const fullPass = await Tesseract.recognize(canvas, "fra+eng", { logger: () => {} });
+        ocrText = `${fullPass.data.text}\n${numPass.data.text}`;
+        confidence = Math.max(fullPass.data.confidence, confidence);
+        result = await identify(ocrText, confidence);
       }
 
-      const ocrText = data.text;
       setOcrDebug(`[conf:${confidence}%] ${ocrText.slice(0, 150)}`);
-
-      // Envoyer au backend pour scoring multi-champs + filtrage
-      const base = import.meta.env.VITE_API_URL || "";
-      const result = await fetch(`${base}/api/identify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: ocrText, confidence }),
-      }).then((r) => r.json());
 
       const { candidates: found = [], reason } = result;
 
@@ -293,9 +295,9 @@ export default function Scan() {
 
   return (
     <div className="page">
-      <h1 className="text-2xl font-bold text-white mb-6">Scanner une carte</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-6">Scanner une carte</h1>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-3 sm:mb-6">
         {["scan", "search"].map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"}`}>
@@ -307,7 +309,7 @@ export default function Scan() {
       {tab === "scan" && (
         <div className="space-y-4">
           {/* Viewfinder */}
-          <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-[3/4] max-h-[70vh] mx-auto border border-gray-800">
+          <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-[3/4] max-h-[50vh] sm:max-h-[70vh] mx-auto border border-gray-800">
             <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
 
             {!streaming && (

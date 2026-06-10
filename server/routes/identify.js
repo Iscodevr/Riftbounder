@@ -53,7 +53,7 @@ function extractNumber(text) {
     || text.match(/(\d{1,3})\s*\/\s*(\d{2,3})/);
   if (!m) return null;
   const total = parseInt(m[2]);
-  if (total < 50) return null;
+  if (total < 20) return null;
   return `${String(parseInt(m[1])).padStart(3, "0")}/${m[2]}`;
 }
 
