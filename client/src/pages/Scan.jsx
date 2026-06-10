@@ -456,7 +456,8 @@ export default function Scan() {
 }
 
 function CandidateCard({ card, quantity, score, onAdd, onAddExtra, onClick }) {
-  const landscape = !!card.image_small && card.image_small.includes("cmsassets.rgpub.io");
+  const dims = card.image_small?.match(/-(\d+)x(\d+)\.\w+/);
+  const landscape = !!dims && Number(dims[1]) > Number(dims[2]);
   return (
     <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gold-500/60 transition-colors">
       <div className="cursor-pointer relative" onClick={onClick}>

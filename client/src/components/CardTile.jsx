@@ -15,7 +15,8 @@ const DOMAIN_COLORS = {
 };
 
 function isLandscapeImage(url) {
-  return !!url && url.includes("cmsassets.rgpub.io");
+  const m = url?.match(/-(\d+)x(\d+)\.\w+/);
+  return !!m && Number(m[1]) > Number(m[2]);
 }
 
 export default function CardTile({ card, quantity, onAdd, onRemove, onClick }) {
