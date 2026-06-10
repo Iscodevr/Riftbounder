@@ -375,6 +375,12 @@ export default function Scan() {
             </p>
           )}
 
+          {ocrDebug && (
+            <p className="text-xs text-center text-gray-600 break-words bg-gray-900 rounded-lg p-2 border border-gray-800">
+              🔍 OCR: {ocrDebug}
+            </p>
+          )}
+
           {/* Proposition d'apprendre un nom FR */}
           {pendingFrName && (
             <div className="bg-gray-900 border border-gold-500/40 rounded-xl p-4 space-y-2">
