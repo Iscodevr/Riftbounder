@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import CardTile from "../components/CardTile";
 import CardModal from "../components/CardModal";
 import Filters from "../components/Filters";
+import ImportModal from "../components/ImportModal";
 
 export default function Library() {
   const api = useApi();
@@ -16,6 +17,7 @@ export default function Library() {
   const [filters, setFilters] = useState(null);
   const [params, setParams] = useState({ page: 1, limit: 48 });
   const [selected, setSelected] = useState(null);
+  const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
@@ -65,6 +67,7 @@ export default function Library() {
     <div className="page">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Ma collection</h1>
+        <button onClick={() => setImporting(true)} className="btn-ghost text-sm px-3 py-2">⬆ Importer</button>
       </div>
 
       <Filters filters={filters} values={params} onChange={setParams} total={total} />
@@ -105,6 +108,16 @@ export default function Library() {
         onAdd={add}
         onRemove={remove}
       />
+
+      {importing && (
+        <ImportModal
+          mode="library"
+          onClose={() => { setImporting(false); loadLibrary(); }}
+          onImport={async (card, qty) => {
+            await api.post("/library", { card_id: card.id, quantity: qty });
+          }}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 text-white text-sm px-5 py-3 rounded-xl shadow-lg z-50">

@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import CardTile from "../components/CardTile";
 import CardModal from "../components/CardModal";
 import Filters from "../components/Filters";
+import ImportModal from "../components/ImportModal";
 
 export default function DeckDetail() {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export default function DeckDetail() {
   const [toast, setToast] = useState("");
   const [editing, setEditing] = useState(false);
   const [deckName, setDeckName] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
@@ -116,6 +118,7 @@ export default function DeckDetail() {
         <button onClick={() => setTab("add")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "add" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"}`}>
           + Ajouter des cartes
         </button>
+        <button onClick={() => setImporting(true)} className="ml-auto btn-ghost text-sm px-3 py-2">⬆ Importer</button>
       </div>
 
       {tab === "deck" ? (
@@ -155,6 +158,16 @@ export default function DeckDetail() {
         onAdd={addCard}
         onRemove={selected && deckMap[selected?.id] ? removeCard : null}
       />
+
+      {importing && (
+        <ImportModal
+          mode="deck"
+          onClose={() => { setImporting(false); loadDeck(); }}
+          onImport={async (card, qty) => {
+            await api.post(`/decks/${id}/cards`, { card_id: card.id, quantity: qty });
+          }}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 text-white text-sm px-5 py-3 rounded-xl shadow-lg z-50">

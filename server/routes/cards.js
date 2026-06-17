@@ -58,6 +58,33 @@ router.get("/filters", async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/cards/import  { names: ["En Garde", "Calm Rune", ...] }
+// Returns best-match card per name (case-insensitive, prefers exact then partial)
+router.post("/import", async (req, res) => {
+  const { names } = req.body;
+  if (!Array.isArray(names) || names.length === 0)
+    return res.status(400).json({ error: "names[] requis" });
+
+  try {
+    const results = await Promise.all(names.map(async (name) => {
+      const { rows } = await db.query(
+        `SELECT * FROM cards
+         WHERE card_type IS NOT NULL
+           AND (name ILIKE $1 OR clean_name ILIKE $1)
+         ORDER BY
+           CASE WHEN LOWER(name) = LOWER($2) THEN 0
+                WHEN LOWER(clean_name) = LOWER($2) THEN 0
+                ELSE 1 END,
+           set_release_date DESC
+         LIMIT 5`,
+        [`%${name}%`, name]
+      );
+      return { name, cards: rows };
+    }));
+    res.json(results);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const { rows } = await db.query("SELECT * FROM cards WHERE id = $1", [req.params.id]);
