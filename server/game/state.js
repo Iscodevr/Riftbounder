@@ -84,11 +84,17 @@ function setDeck(code, socketId, deckCards) {
   if (!p) return { error: "Joueur non trouvé" };
 
   const cards = deckCards.map(inst);
-  p.deck = shuffle(cards.filter((c) => !["Battlefield"].includes(c.card_type)));
-  // Battlefield cards kept separate for selection
   p._battlefields = cards.filter((c) => c.card_type === "Battlefield");
+  // Legend and Champion start directly in their zones, not in the deck
+  p.legend   = cards.filter((c) => c.card_type === "Legend");
+  p.champion = cards.filter((c) => /Champion/.test(c.card_type || ""));
+  p.deck = shuffle(cards.filter((c) =>
+    c.card_type !== "Battlefield" &&
+    c.card_type !== "Legend" &&
+    !/Champion/.test(c.card_type || "")
+  ));
   p.hand = [];
-  p.legend = []; p.champion = []; p.field = []; p.spellZone = []; p.graveyard = [];
+  p.field = []; p.spellZone = []; p.graveyard = [];
   p.battlefieldCard = null;
   p.mulliganDone = false;
   p.ready = true;
