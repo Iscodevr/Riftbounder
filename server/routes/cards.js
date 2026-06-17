@@ -67,17 +67,26 @@ router.post("/import", async (req, res) => {
 
   try {
     const results = await Promise.all(names.map(async (name) => {
+      // Normalize: strip punctuation for clean_name matching
+      const cleanQuery = name.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+      // Also try replacing ", " ↔ " - " for Riftbound card name conventions
+      const altName = name.includes(", ")
+        ? name.replace(/, /g, " - ")
+        : name.replace(/ - /g, ", ");
+
       const { rows } = await db.query(
         `SELECT * FROM cards
          WHERE card_type IS NOT NULL
-           AND (name ILIKE $1 OR clean_name ILIKE $1)
+           AND (name ILIKE $1 OR name ILIKE $2
+             OR REGEXP_REPLACE(LOWER(name), $6, ' ', 'g') ILIKE $3)
          ORDER BY
-           CASE WHEN LOWER(name) = LOWER($2) THEN 0
-                WHEN LOWER(clean_name) = LOWER($2) THEN 0
+           CASE WHEN LOWER(name) = LOWER($4) THEN 0
+                WHEN LOWER(name) = LOWER($5) THEN 0
                 ELSE 1 END,
            set_release_date DESC
          LIMIT 5`,
-        [`%${name}%`, name]
+        [`%${name}%`, `%${altName}%`, `%${cleanQuery}%`, name, altName, '[^a-z0-9 ]']
       );
       return { name, cards: rows };
     }));
