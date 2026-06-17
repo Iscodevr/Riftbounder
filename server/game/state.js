@@ -24,9 +24,16 @@ function makePlayerState(userId, socketId) {
   return { userId, socketId, deckId: null, deck: [], hand: [], battlefield: [], graveyard: [], ready: false };
 }
 
-function createRoom(hostSocketId, hostUserId) {
+function createRoom(hostSocketId, hostUserId, solo = false) {
   const code = makeCode();
-  const room = { code, phase: "lobby", players: [makePlayerState(hostUserId, hostSocketId)] };
+  const players = [makePlayerState(hostUserId, hostSocketId)];
+  if (solo) {
+    const dummy = makePlayerState("bot", "bot");
+    dummy.ready = true;
+    dummy.deck = [];
+    players.push(dummy);
+  }
+  const room = { code, phase: "lobby", solo, players };
   rooms.set(code, room);
   return room;
 }

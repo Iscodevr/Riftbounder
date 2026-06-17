@@ -17,9 +17,9 @@ function Lobby({ onJoined }) {
     "game:error": (msg) => setError(msg),
   });
 
-  const create = () => {
+  const create = (solo = false) => {
     setError("");
-    getSocket().emit("game:create", { userId: user.id });
+    getSocket().emit("game:create", { userId: user.id, solo });
   };
 
   const join = (e) => {
@@ -36,8 +36,9 @@ function Lobby({ onJoined }) {
 
         {!mode && (
           <div className="space-y-3">
-            <button onClick={create} className="btn-primary w-full">Créer une partie</button>
+            <button onClick={() => create(false)} className="btn-primary w-full">Créer une partie</button>
             <button onClick={() => setMode("join")} className="btn-ghost w-full">Rejoindre avec un code</button>
+            <button onClick={() => create(true)} className="btn-ghost w-full text-gray-500">🧪 Tester seul</button>
           </div>
         )}
 

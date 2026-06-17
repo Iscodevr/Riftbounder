@@ -23,8 +23,8 @@ function safeRoom(room, viewerSocketId) {
 
 module.exports = function registerGame(io) {
   io.on("connection", (socket) => {
-    socket.on("game:create", async ({ userId }) => {
-      const room = createRoom(socket.id, userId);
+    socket.on("game:create", async ({ userId, solo }) => {
+      const room = createRoom(socket.id, userId, !!solo);
       socket.join(room.code);
       socket.emit("game:joined", { code: room.code, room: safeRoom(room, socket.id) });
     });
