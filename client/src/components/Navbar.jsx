@@ -7,6 +7,7 @@ const LINKS = [
   { to: "/library", label: "Collection", icon: "📚" },
   { to: "/decks", label: "Decks", icon: "🃏" },
   { to: "/scan", label: "Scanner", icon: "📷" },
+  { to: "/game", label: "Jouer", icon: "⚔️" },
 ];
 
 export default function Navbar() {

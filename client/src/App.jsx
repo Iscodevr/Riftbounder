@@ -8,6 +8,7 @@ import Library from "./pages/Library";
 import Decks from "./pages/Decks";
 import DeckDetail from "./pages/DeckDetail";
 import Scan from "./pages/Scan";
+import Game from "./pages/Game";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ function Layout() {
         <Route path="/decks" element={<PrivateRoute><Decks /></PrivateRoute>} />
         <Route path="/decks/:id" element={<PrivateRoute><DeckDetail /></PrivateRoute>} />
         <Route path="/scan" element={<PrivateRoute><Scan /></PrivateRoute>} />
+        <Route path="/game" element={<PrivateRoute><Game /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
