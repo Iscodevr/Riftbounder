@@ -487,45 +487,41 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
 
   return (
     <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-      className={`flex-1 rounded-lg border-2 transition-colors overflow-hidden ${over ? "border-yellow-400 bg-yellow-400/5" : controlColor} bg-black/30`}>
-      {/* Header BF */}
-      <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40">
-        {bf.card?.image_small && (
-          <img src={bf.card.image_small} alt={bf.card.name} className="w-10 h-7 object-cover rounded opacity-80" />
-        )}
+      className={`flex-1 rounded-lg border-2 transition-colors flex flex-col h-full
+        ${over ? "border-yellow-400 bg-yellow-400/5" : controlColor} bg-black/30`}>
+
+      {/* Header fixe */}
+      <div className="shrink-0 flex items-center gap-1 px-1 py-0.5 bg-black/50">
         <span className="text-[9px] text-gray-400 flex-1 truncate">{bf.card?.name || `BF ${bf.id + 1}`}</span>
         {bf.conquered && (
           <span className={`text-[8px] font-bold ${controller === myPlayerIndex ? "text-green-400" : "text-red-400"}`}>
-            {controller === myPlayerIndex ? "✓ Conquis" : "✗ Adverse"}
+            {controller === myPlayerIndex ? "✓" : "✗"}
           </span>
         )}
       </div>
 
-      {/* Unités adverses (haut) */}
-      <div className="flex flex-wrap gap-0.5 p-0.5 min-h-[36px] border-b border-gray-800/40">
+      {/* Unités adverses — flex-1, hauteur identique */}
+      <div className="flex-1 relative flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden border-b border-gray-800/40 min-h-0">
         {oppUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone={`bf-opp`} bfIndex={bf.id} isMe={false} size="sm" />
+          <GameCard key={card.instanceId} card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="sm" />
         ))}
-        {oppUnits.length === 0 && <span className="text-[7px] text-gray-800 self-center w-full text-center">— adversaire —</span>}
+        {oppUnits.length === 0 && <span className="text-[7px] text-gray-800 w-full text-center self-center">adv.</span>}
+        {/* Bouton combat en overlay — ne change pas la hauteur */}
+        {hasCombat && isMe && (
+          <button onClick={() => onResolveCombat(bf.id)}
+            className="absolute inset-0 flex items-center justify-center bg-red-950/70 text-[9px] text-red-300 font-bold">
+            ⚔️ Combat
+          </button>
+        )}
       </div>
 
-      {/* Combat button */}
-      {hasCombat && isMe && (
-        <div className="flex justify-center py-0.5 bg-red-950/30">
-          <button onClick={() => onResolveCombat(bf.id)}
-            className="text-[9px] text-red-400 hover:text-red-200 font-bold px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/60 transition-colors">
-            ⚔️ Résoudre combat
-          </button>
-        </div>
-      )}
-
-      {/* Mes unités (bas) */}
-      <div className="flex flex-wrap gap-0.5 p-0.5 min-h-[36px]">
+      {/* Mes unités — flex-1 */}
+      <div className="flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden min-h-0">
         {myUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone={`bf`} bfIndex={bf.id} isMe={isMe} size="sm"
+          <GameCard key={card.instanceId} card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="sm"
             onTap={onCardTap} onLongPress={onCardLongPress} />
         ))}
-        {myUnits.length === 0 && <span className="text-[7px] text-gray-800 self-center w-full text-center">— tes unités —</span>}
+        {myUnits.length === 0 && <span className="text-[7px] text-gray-800 w-full text-center self-center">moi</span>}
       </div>
     </div>
   );
@@ -782,13 +778,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
           </ZoneCell>
         </div>
 
-        {/* Adv ligne 3 (proche BF) : Battlefield | Legend | Champion */}
+        {/* Adv ligne 3 (proche BF) : Legend | Champion | BF-ref */}
         <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Battlefield" border="border-gray-600/40" className="flex-1">
-            {opp?.battlefieldCard
-              ? <GameCard card={opp.battlefieldCard} zone="opp-bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-gray-700">BF</span>}
-          </ZoneCell>
           <ZoneCell label="Legend" border="border-amber-800/40" bg="bg-amber-950/10" className={SM}
             onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
             {opp?.legendCard
@@ -801,6 +792,13 @@ function Board({ room: initialRoom, mySocketId, code }) {
             ))}
             {!(opp?.champion?.length) && <span className="text-sm text-purple-800">⚔</span>}
           </ZoneCell>
+          <ZoneCell label="BF sélectionné" border="border-gray-700/20" bg="bg-transparent" className={SM}
+            onClick={() => opp?.battlefieldCard && setZoom(opp.battlefieldCard)}>
+            {opp?.battlefieldCard
+              ? <GameCard card={opp.battlefieldCard} zone="opp-bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
+              : <span className="text-[9px] text-gray-800">—</span>}
+          </ZoneCell>
+          <div className="flex-1" />
         </div>
       </div>
 
@@ -824,8 +822,15 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {/* ══ Zone moi : 3 lignes ══ */}
       <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5">
 
-        {/* Moi ligne 1 (proche BF) : Champion | Legend | Battlefield */}
+        {/* Moi ligne 1 (proche BF) : BF-ref | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
+          <div className="flex-1" />
+          <ZoneCell label="BF sélectionné" border="border-gray-700/20" bg="bg-transparent" className={SM}
+            onClick={() => me?.battlefieldCard && setZoom(me.battlefieldCard)}>
+            {me?.battlefieldCard
+              ? <GameCard card={me.battlefieldCard} zone="bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
+              : <span className="text-[9px] text-gray-800">—</span>}
+          </ZoneCell>
           <ZoneCell label="Champion" border="border-purple-700/40" bg="bg-purple-950/10" className={SM}
             onClick={() => (me?.champion || [])[0] && setMenu({ card: me.champion[0], zone: "champion", bfIndex: null })}>
             {(me?.champion || []).slice(0, 1).map((c) => (
@@ -839,12 +844,6 @@ function Board({ room: initialRoom, mySocketId, code }) {
             {me?.legendCard
               ? <GameCard card={me.legendCard} zone="legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
               : <span className="text-sm text-amber-700">♛</span>}
-          </ZoneCell>
-          <ZoneCell label="Battlefield" border="border-gray-600/40" className="flex-1"
-            onClick={() => me?.battlefieldCard && setZoom(me.battlefieldCard)}>
-            {me?.battlefieldCard
-              ? <GameCard card={me.battlefieldCard} zone="bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-gray-700">BF</span>}
           </ZoneCell>
         </div>
 
