@@ -1,10 +1,28 @@
 const { createRoom, joinRoom, setDeck, selectBattlefield, doMulligan, applyAction, removePlayer } = require("./state");
 const db = require("../db/index");
 
+function randomId() { return Math.random().toString(36).slice(2); }
+
 function safeRoom(room, viewerSocketId) {
   if (!room) return null;
   return {
-    ...room,
+    code: room.code,
+    phase: room.phase,
+    solo: room.solo,
+    turn: room.turn,
+    winner: room.winner,
+    // Battlefields partagés — visibles par tous avec leurs unités
+    battlefields: (room.battlefields || []).map((bf) => ({
+      id: bf.id,
+      playerIndex: bf.playerIndex,
+      card: bf.card,
+      controller: bf.controller,
+      conquered: bf.conquered,
+      units: {
+        0: bf.units[0] || [],
+        1: bf.units[1] || [],
+      },
+    })),
     players: room.players.map((p) => ({
       userId: p.userId,
       socketId: p.socketId,
@@ -12,27 +30,30 @@ function safeRoom(room, viewerSocketId) {
       ready: p.ready,
       _bfDone: p._bfDone,
       mulliganDone: p.mulliganDone,
+      score: p.score,
+      energy: p.energy,
       deckSize: p.deck.length,
       runeDeckSize: p.runeDeck.length,
       graveyardSize: p.graveyard.length,
+      banishmentSize: p.banishment.length,
       battlefieldCard: p.battlefieldCard,
-      battlefields: p.socketId === viewerSocketId ? (p._battlefields || []) : undefined,
+      legendCard: p.legendCard,  // La légende est visible par tous
+      // Cartes privées du viewer — face visible ; celles de l'adversaire — face cachée
       hand: p.socketId === viewerSocketId
         ? p.hand
         : p.hand.map(() => ({ instanceId: randomId(), faceDown: true })),
       runeHand: p.socketId === viewerSocketId
         ? p.runeHand
         : p.runeHand.map(() => ({ instanceId: randomId(), faceDown: true })),
-      legend: p.legend,
       champion: p.champion,
       field: p.field,
       spellZone: p.spellZone,
       graveyard: p.graveyard,
+      // Seulement visible au setup
+      battlefields: p.socketId === viewerSocketId ? (p._battlefields || []) : undefined,
     })),
   };
 }
-
-function randomId() { return Math.random().toString(36).slice(2); }
 
 function broadcast(io, room) {
   for (const p of room.players) {
@@ -77,7 +98,7 @@ module.exports = function registerGame(io) {
     });
 
     socket.on("game:mulligan", ({ code, returnInstanceIds }) => {
-      const result = doMulligan(code, socket.id, returnInstanceIds);
+      const result = doMulligan(code, socket.id, returnInstanceIds || []);
       if (result.error) return socket.emit("game:error", result.error);
       broadcast(io, result.room);
     });
