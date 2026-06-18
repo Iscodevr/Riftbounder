@@ -295,123 +295,48 @@ function CardMenu({ card, zone, onAction, onClose }) {
   );
 }
 
-// ── Player area (my side or opponent side) ────────────────────────────────────
-// Layout rows (top→bottom for me, bottom→top for opp):
-//   Row 1 — Battlefields (BF1, BF2)
-//   Row 2 — Champion | Legend | Base/Field | Deck
-//   Row 3 — RuneDeck | Rune slots | Graveyard
-function PlayerArea({ p, isMe, onDrop, onCardTap, onCardLongPress, onDraw, onDrawRune, flipped = false }) {
-  const runeSlots = 4; // number of visible rune emplacements
-
-  const wrapStyle = flipped ? { transform: "rotate(180deg)" } : undefined;
-
+// ── Rune row ──────────────────────────────────────────────────────────────────
+function RuneRow({ p, isMe, onCardTap, onCardLongPress, onDrop, onDrawRune }) {
+  const MAX_SLOTS = 6;
+  const runes = p?.runeHand || [];
   return (
-    <div className="flex flex-col gap-0.5 flex-1 min-h-0 px-1 py-0.5" style={wrapStyle}>
-
-      {/* Row 1 — Battlefields */}
-      <div className="flex gap-1 shrink-0 h-[52px]">
-        {/* BF slot 1 — the chosen battlefield card */}
-        <div className="flex-1 rounded-md border border-gray-700/60 bg-black/20 overflow-hidden flex items-center justify-center">
-          {p?.battlefieldCard ? (
-            <img src={p.battlefieldCard.image_small || p.battlefieldCard.image_large} alt={p.battlefieldCard.name}
-              className="w-full h-full object-cover" style={flipped ? { transform: "rotate(180deg)" } : undefined} />
-          ) : (
-            <span className="text-[8px] text-gray-700">Battlefield 1</span>
-          )}
+    <div className="flex items-center gap-1 h-full">
+      {/* Pioche rune */}
+      {isMe ? (
+        <button onClick={onDrawRune}
+          className="w-10 h-full shrink-0 bg-blue-950/40 hover:bg-blue-900/50 border border-blue-800/50 rounded text-[9px] text-blue-400 flex flex-col items-center justify-center gap-0.5 transition-colors">
+          <span className="text-sm">🔷</span><span>{p?.runeDeckSize ?? 0}</span>
+        </button>
+      ) : (
+        <div className="w-10 h-full shrink-0 bg-blue-950/20 border border-blue-900/30 rounded text-[9px] text-blue-700 flex flex-col items-center justify-center gap-0.5">
+          <span className="text-sm">🔷</span><span>{p?.runeDeckSize ?? 0}</span>
         </div>
-        {/* BF slot 2 — placeholder (second BF not in use yet) */}
-        <div className="flex-1 rounded-md border border-dashed border-gray-800 bg-black/10 flex items-center justify-center">
-          <span className="text-[8px] text-gray-800">Battlefield 2</span>
+      )}
+      {/* Emplacements rune */}
+      {Array.from({ length: MAX_SLOTS }).map((_, i) => {
+        const card = runes[i];
+        if (!card) return (
+          <div key={i} className="flex-1 h-full rounded border border-dashed border-blue-900/30 bg-blue-950/10 flex items-center justify-center min-w-0">
+            <span className="text-[7px] text-blue-900/40">◇</span>
+          </div>
+        );
+        if (!isMe) return (
+          <div key={card.instanceId} className="flex-1 h-full rounded overflow-hidden border border-blue-800/40 bg-blue-950/30 flex items-center justify-center min-w-0">
+            <span className="text-[10px] text-blue-600">🔷</span>
+          </div>
+        );
+        return (
+          <div key={card.instanceId} className="flex-1 h-full rounded overflow-hidden border border-blue-700/50 min-w-0">
+            <GameCard card={card} zone="runeHand" isMe small onTap={onCardTap} onLongPress={onCardLongPress} />
+          </div>
+        );
+      })}
+      {/* Runes supplémentaires au-delà de MAX_SLOTS */}
+      {runes.slice(MAX_SLOTS).map((card) => (
+        <div key={card.instanceId} className="w-8 h-full rounded overflow-hidden border border-blue-700/50 shrink-0">
+          {isMe ? <GameCard card={card} zone="runeHand" isMe small onTap={onCardTap} onLongPress={onCardLongPress} /> : <div className="w-full h-full bg-blue-950/30" />}
         </div>
-        {/* Hand count for opponent */}
-        {!isMe && (
-          <div className="w-10 flex flex-col items-center justify-center gap-0.5 text-[9px] text-gray-500">
-            <span>🃏</span><span>{p?.hand?.length ?? 0}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Row 2 — Champion | Legend | Base/Field | Deck */}
-      <div className="flex gap-1 shrink-0 h-[72px]">
-        {/* Champion */}
-        <DropZone label="Champ." icon="⚔️" cards={isMe ? (p?.champion || []) : (p?.champion || [])}
-          onDrop={isMe ? onDrop("champion") : undefined}
-          onCardTap={isMe ? onCardTap : undefined} onCardLongPress={isMe ? onCardLongPress : undefined}
-          isMe={isMe} className="w-12 shrink-0 h-full" flipped={flipped} />
-        {/* Legend */}
-        <DropZone label="Légende" icon="👑" cards={p?.legend || []}
-          onDrop={isMe ? onDrop("legend") : undefined}
-          onCardTap={isMe ? onCardTap : undefined} onCardLongPress={isMe ? onCardLongPress : undefined}
-          isMe={isMe} className="w-12 shrink-0 h-full" flipped={flipped} />
-        {/* Base / Field */}
-        <DropZone label="Base" icon="🛡" cards={p?.field || []}
-          onDrop={isMe ? onDrop("field") : undefined}
-          onCardTap={isMe ? onCardTap : undefined} onCardLongPress={isMe ? onCardLongPress : undefined}
-          isMe={isMe} className="flex-1 h-full overflow-x-auto" flipped={flipped} />
-        {/* Deck */}
-        {isMe ? (
-          <button onClick={onDraw}
-            className="w-12 shrink-0 h-full bg-gray-900/60 hover:bg-gray-800 border border-gray-800 rounded-lg text-[9px] text-gray-400 flex flex-col items-center justify-center gap-0.5 transition-colors">
-            <span>🂠</span><span>{p?.deckSize ?? 0}</span>
-          </button>
-        ) : (
-          <div className="w-12 shrink-0 h-full bg-gray-900/40 border border-gray-800 rounded-lg text-[9px] text-gray-600 flex flex-col items-center justify-center gap-0.5">
-            <span>🂠</span><span>{p?.deckSize ?? 0}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Row 3 — RuneDeck | Rune slots | Graveyard */}
-      <div className="flex gap-1 shrink-0 h-[58px]">
-        {/* Rune pioche */}
-        {isMe ? (
-          <button onClick={onDrawRune}
-            className="w-10 h-full bg-gray-900/60 hover:bg-gray-800 border border-blue-900/60 rounded-lg text-[9px] text-blue-400 flex flex-col items-center justify-center gap-0.5 transition-colors shrink-0">
-            <span>🔷</span><span>{p?.runeDeckSize ?? 0}</span>
-          </button>
-        ) : (
-          <div className="w-10 h-full bg-gray-900/30 border border-blue-900/30 rounded-lg text-[9px] text-blue-700 flex flex-col items-center justify-center gap-0.5 shrink-0">
-            <span>🔷</span><span>{p?.runeDeckSize ?? 0}</span>
-          </div>
-        )}
-        {/* Rune slots — fixed 4 emplacements */}
-        <div className="flex gap-1 flex-1 h-full">
-          {Array.from({ length: runeSlots }).map((_, i) => {
-            const card = (p?.runeHand || [])[i];
-            if (!card) {
-              return (
-                <div key={i} className="flex-1 h-full rounded-md border border-dashed border-blue-900/40 bg-blue-950/10 flex items-center justify-center">
-                  <span className="text-[8px] text-blue-900/60">R{i + 1}</span>
-                </div>
-              );
-            }
-            return (
-              <div key={card.instanceId} className="flex-1 h-full rounded-md overflow-hidden border border-blue-800/50">
-                {isMe ? (
-                  <GameCard card={card} zone="runeHand" isMe={isMe} small
-                    onTap={onCardTap} onLongPress={onCardLongPress} />
-                ) : (
-                  <div className="w-full h-full bg-blue-950/40 flex items-center justify-center">
-                    <span className="text-blue-700 text-[10px]">🔷</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {/* Extra runes beyond 4 */}
-          {(p?.runeHand || []).slice(runeSlots).map((card) => (
-            <div key={card.instanceId} className="w-10 h-full rounded-md overflow-hidden border border-blue-800/50 shrink-0">
-              {isMe ? <GameCard card={card} zone="runeHand" isMe small onTap={onCardTap} onLongPress={onCardLongPress} /> : <div className="w-full h-full bg-blue-950/40" />}
-            </div>
-          ))}
-        </div>
-        {/* Graveyard */}
-        <DropZone label="GY" icon="💀"
-          cards={isMe ? (p?.graveyard || []).slice(-1) : (p?.graveyard || []).slice(-1)}
-          onDrop={isMe ? onDrop("graveyard") : undefined}
-          onCardTap={isMe ? onCardTap : undefined} onCardLongPress={isMe ? onCardLongPress : undefined}
-          isMe={isMe} className="w-10 h-full shrink-0" flipped={flipped} />
-      </div>
+      ))}
     </div>
   );
 }
@@ -438,66 +363,138 @@ function Board({ room: initialRoom, mySocketId, code }) {
     else setMenu({ card, zone });
   };
   const onCardLongPress = (card, zone) => setMenu({ card, zone });
-
   const handleDrop = (toZone) => (card, fromZone) => {
     if (fromZone === "hand" || fromZone === "runeHand") send({ type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: toZone });
     else send({ type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone });
   };
 
+  // BF background for my side
+  const myBfImg = me?.battlefieldCard?.image_large || me?.battlefieldCard?.image_small;
+  const oppBfImg = opp?.battlefieldCard?.image_large || opp?.battlefieldCard?.image_small;
+
+  const BFSlot = ({ p, img }) => (
+    <div className="flex-1 h-full rounded border border-gray-700/40 overflow-hidden flex items-center justify-center bg-black/20">
+      {img
+        ? <img src={img} alt="" className="w-full h-full object-cover opacity-80" />
+        : <span className="text-[8px] text-gray-800">Battlefield</span>}
+    </div>
+  );
+
+  const DeckBtn = ({ p, isMe }) => isMe
+    ? <button onClick={() => send({ type: "DRAW" })} className="w-11 h-full shrink-0 bg-gray-800/60 hover:bg-gray-700 border border-gray-700 rounded text-[9px] text-gray-400 flex flex-col items-center justify-center gap-0.5 transition-colors"><span>🂠</span><span>{p?.deckSize ?? 0}</span></button>
+    : <div className="w-11 h-full shrink-0 bg-gray-800/30 border border-gray-700/40 rounded text-[9px] text-gray-600 flex flex-col items-center justify-center gap-0.5"><span>🂠</span><span>{p?.deckSize ?? 0}</span></div>;
+
+  const GYSlot = ({ p, isMe }) => (
+    <DropZone label="GY" icon="💀" cards={(p?.graveyard || []).slice(-1)}
+      onDrop={isMe ? handleDrop("graveyard") : undefined}
+      onCardTap={isMe ? onCardTap : undefined} onCardLongPress={isMe ? onCardLongPress : undefined}
+      isMe={isMe} className="w-11 h-full shrink-0" />
+  );
+
   return (
-    <div className="fixed inset-0 bg-gray-950 overflow-hidden select-none flex flex-col"
+    <div className="fixed inset-0 bg-gray-950 overflow-hidden select-none flex flex-col text-white"
       style={{ touchAction: "manipulation" }}>
 
-      {/* ── Info bar ── */}
-      <div className="shrink-0 flex items-center px-2 py-0.5 bg-gray-900/90 border-b border-gray-800 text-[9px] text-gray-500">
-        <span className="font-mono tracking-widest text-gray-700">{code}</span>
-        <span className="flex-1 text-center text-gray-600">Tour {room.turn ?? 1}</span>
-        <button onClick={() => send({ type: "UNEXHAUST_ALL" })} className="text-gray-500 hover:text-white px-2 transition-colors">↺ Désépuiser</button>
-        <button onClick={() => send({ type: "DRAW_TURN" })} className="bg-gold-500/20 hover:bg-gold-500/40 text-gold-400 rounded px-2 py-0.5 font-medium transition-colors ml-1">
+      {/* ════ OPPONENT HALF ════ */}
+      <div className="flex flex-col flex-1 min-h-0 px-1 pt-1 gap-0.5">
+
+        {/* Opp Row 1 — Rune pioche | Rune slots | GY */}
+        <div className="flex gap-1 h-[42px] shrink-0">
+          <div className="w-10 h-full shrink-0 bg-blue-950/20 border border-blue-900/30 rounded text-[9px] text-blue-700 flex flex-col items-center justify-center gap-0.5">
+            <span>🔷</span><span>{opp?.runeDeckSize ?? 0}</span>
+          </div>
+          {Array.from({ length: 6 }).map((_, i) => {
+            const card = (opp?.runeHand || [])[i];
+            return card
+              ? <div key={card.instanceId} className="flex-1 h-full rounded overflow-hidden border border-blue-800/40 bg-blue-950/30 flex items-center justify-center"><span className="text-[10px] text-blue-600">🔷</span></div>
+              : <div key={i} className="flex-1 h-full rounded border border-dashed border-blue-900/20 bg-blue-950/5" />;
+          })}
+          <GYSlot p={opp} isMe={false} />
+        </div>
+
+        {/* Opp Row 2 — Champion | Legend | Field | Sort | Deck */}
+        <div className="flex gap-1 h-[72px] shrink-0">
+          <DropZone label="⚔" icon="" cards={opp?.champion || []} isMe={false} className="w-12 shrink-0 h-full" />
+          <DropZone label="👑" icon="" cards={opp?.legend || []} isMe={false} className="w-12 shrink-0 h-full" />
+          <DropZone label="Base" icon="🛡" cards={opp?.field || []} isMe={false} className="flex-1 h-full overflow-x-auto" />
+          <DropZone label="Sort" icon="✨" cards={opp?.spellZone || []} isMe={false} className="w-12 shrink-0 h-full" />
+          <DeckBtn p={opp} isMe={false} />
+        </div>
+
+        {/* Opp Row 3 — BF1 | BF2 */}
+        <div className="flex gap-1 h-[42px] shrink-0">
+          <BFSlot p={opp} img={oppBfImg} />
+          <BFSlot p={opp} img={null} />
+          {/* Opponent hand (face down) aligned right */}
+          <div className="flex gap-0.5 items-center ml-1 shrink-0">
+            {(opp?.hand || []).map((c) => (
+              <div key={c.instanceId} className="w-7 h-10 rounded bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-600 text-[10px]">🂠</div>
+            ))}
+            {(opp?.hand?.length ?? 0) === 0 && <span className="text-[9px] text-gray-700 px-1">🃏 0</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ════ CENTER BAR ════ */}
+      <div className="shrink-0 flex items-center gap-2 px-2 py-1 bg-gray-900 border-y border-gray-800 text-[10px]">
+        <span className="font-mono text-gray-700 tracking-widest">{code}</span>
+        <span className="text-gray-600">Tour {room.turn ?? 1}</span>
+        <div className="flex-1" />
+        <button onClick={() => send({ type: "UNEXHAUST_ALL" })} className="text-gray-400 hover:text-white px-2 py-0.5 rounded hover:bg-gray-800 transition-colors">↺ Désépuiser</button>
+        <button onClick={() => send({ type: "DRAW_TURN" })} className="bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400 rounded px-3 py-0.5 font-semibold transition-colors">
           Fin de tour
         </button>
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0">
+      {/* ════ MY HALF ════ */}
+      <div className="flex flex-col flex-1 min-h-0 px-1 pb-1 gap-0.5">
 
-        {/* ── Opponent area (flipped 180°) ── */}
-        <PlayerArea p={opp} isMe={false} flipped
-          onDrop={() => () => {}} onCardTap={() => {}} onCardLongPress={() => {}} onDraw={() => {}} onDrawRune={() => {}} />
-
-        {/* ── Center divider with spell zones ── */}
-        <div className="shrink-0 flex items-center gap-1 px-1 py-0.5 border-y border-gray-800/60 bg-gray-900/30">
-          {/* Opp spell zone (flipped label) */}
-          <DropZone label="Sort adv." icon="✨" cards={(opp?.spellZone || []).map((c) => ({ ...c }))}
-            isMe={false} className="flex-1 h-9" />
-          <div className="w-px h-6 bg-gray-700 mx-1" />
-          {/* My spell zone */}
-          <DropZone label="Sort" icon="✨" cards={me?.spellZone || []}
-            onDrop={handleDrop("spellZone")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-            isMe className="flex-1 h-9" />
+        {/* My Row 1 — BF1 | BF2 */}
+        <div className="flex gap-1 h-[42px] shrink-0 mt-0.5">
+          <BFSlot p={me} img={myBfImg} />
+          <BFSlot p={me} img={null} />
         </div>
 
-        {/* ── My area ── */}
-        <PlayerArea p={me} isMe
-          onDrop={handleDrop} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-          onDraw={() => send({ type: "DRAW" })} onDrawRune={() => send({ type: "DRAW_RUNE" })} />
+        {/* My Row 2 — Champion | Legend | Field | Sort | Deck */}
+        <div className="flex gap-1 flex-1 min-h-0">
+          <DropZone label="Champ." icon="⚔️" cards={me?.champion || []}
+            onDrop={handleDrop("champion")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+            isMe className="w-12 shrink-0 h-full" />
+          <DropZone label="Légende" icon="👑" cards={me?.legend || []}
+            onDrop={handleDrop("legend")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+            isMe className="w-12 shrink-0 h-full" />
+          <DropZone label="Base" icon="🛡" cards={me?.field || []}
+            onDrop={handleDrop("field")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+            isMe className="flex-1 h-full overflow-x-auto" />
+          <DropZone label="Sort" icon="✨" cards={me?.spellZone || []}
+            onDrop={handleDrop("spellZone")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+            isMe className="w-12 shrink-0 h-full" />
+          <DeckBtn p={me} isMe />
+        </div>
 
-        {/* ── Hand ── */}
-        <div className="shrink-0 flex gap-1 overflow-x-auto px-1 pt-0.5 pb-1 border-t border-gray-800 bg-gray-900/80 min-h-[72px]">
-          {(me?.hand || []).map((card) => (
-            <GameCard key={card.instanceId} card={card} zone="hand" isMe
-              onTap={(c, z) => setMenu({ card: c, zone: z })}
-              onLongPress={(c, z) => setMenu({ card: c, zone: z })} />
-          ))}
-          {(me?.hand?.length ?? 0) === 0 && <span className="text-[10px] text-gray-700 self-center px-2">Main vide</span>}
+        {/* My Row 3 — RuneDeck | Rune slots | GY */}
+        <div className="flex gap-1 h-[50px] shrink-0">
+          <RuneRow p={me} isMe onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+            onDrop={handleDrop} onDrawRune={() => send({ type: "DRAW_RUNE" })} />
+          <GYSlot p={me} isMe />
         </div>
       </div>
 
+      {/* ════ HAND ════ */}
+      <div className="shrink-0 flex gap-1 overflow-x-auto px-2 py-1.5 bg-gray-900/90 border-t border-gray-800 min-h-[80px] items-center">
+        {(me?.hand || []).map((card) => (
+          <GameCard key={card.instanceId} card={card} zone="hand" isMe
+            onTap={(c, z) => setMenu({ card: c, zone: z })}
+            onLongPress={(c, z) => setMenu({ card: c, zone: z })} />
+        ))}
+        {(me?.hand?.length ?? 0) === 0 && <span className="text-[10px] text-gray-700 px-2">Main vide</span>}
+      </div>
+
       {error && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg">
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg">
           {error}
         </div>
       )}
-
       {menu && <CardMenu card={menu.card} zone={menu.zone} onAction={send} onClose={() => setMenu(null)} />}
     </div>
   );
