@@ -212,14 +212,14 @@ function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size =
       onTouchStart={startPress} onTouchEnd={endPress}
       onClick={handleClick}
       title={!faceDown ? card.name : undefined}
-      className={`relative flex-shrink-0 ${sizeClass} ${className} rounded overflow-hidden border cursor-pointer select-none transition-all
+      className={`relative flex-shrink-0 ${sizeClass} ${className} rounded border cursor-pointer select-none transition-all flex items-center justify-center bg-gray-900
         ${card.exhausted ? "border-gray-600 opacity-70" : "border-gray-700 hover:border-yellow-400"}`}
       style={card.exhausted ? { transform: "rotate(90deg)" } : undefined}
     >
       {faceDown ? (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600 text-sm">🂠</div>
+        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600 text-sm rounded">🂠</div>
       ) : card.image_small ? (
-        <img src={card.image_small} alt={card.name} className="w-full h-full object-cover" draggable={false} />
+        <img src={card.image_small} alt={card.name} className="max-w-full max-h-full object-contain rounded" draggable={false} />
       ) : (
         <div className="w-full h-full bg-gray-800 flex items-center justify-center p-0.5">
           <span className="text-[6px] text-gray-400 text-center leading-tight">{card.name}</span>
