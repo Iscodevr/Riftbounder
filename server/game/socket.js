@@ -8,16 +8,21 @@ function safeRoom(room, viewerSocketId) {
     players: room.players.map((p) => ({
       userId: p.userId,
       socketId: p.socketId,
+      playerIndex: p.playerIndex,
       ready: p.ready,
       _bfDone: p._bfDone,
       mulliganDone: p.mulliganDone,
       deckSize: p.deck.length,
+      runeDeckSize: p.runeDeck.length,
       graveyardSize: p.graveyard.length,
       battlefieldCard: p.battlefieldCard,
       battlefields: p.socketId === viewerSocketId ? (p._battlefields || []) : undefined,
       hand: p.socketId === viewerSocketId
         ? p.hand
-        : p.hand.map((c) => ({ instanceId: c.instanceId, faceDown: true })),
+        : p.hand.map(() => ({ instanceId: randomId(), faceDown: true })),
+      runeHand: p.socketId === viewerSocketId
+        ? p.runeHand
+        : p.runeHand.map(() => ({ instanceId: randomId(), faceDown: true })),
       legend: p.legend,
       champion: p.champion,
       field: p.field,
@@ -25,6 +30,15 @@ function safeRoom(room, viewerSocketId) {
       graveyard: p.graveyard,
     })),
   };
+}
+
+function randomId() { return Math.random().toString(36).slice(2); }
+
+function broadcast(io, room) {
+  for (const p of room.players) {
+    if (p.socketId === "bot") continue;
+    io.to(p.socketId).emit("game:state", { room: safeRoom(room, p.socketId) });
+  }
 }
 
 module.exports = function registerGame(io) {
@@ -40,11 +54,8 @@ module.exports = function registerGame(io) {
       const result = joinRoom(code.toUpperCase(), socket.id, userId);
       if (result.error) return socket.emit("game:error", result.error);
       socket.join(code.toUpperCase());
-      const room = result.room;
-      for (const p of room.players) {
-        io.to(p.socketId).emit("game:state", { room: safeRoom(room, p.socketId) });
-      }
-      socket.emit("game:joined", { code: code.toUpperCase(), room: safeRoom(room, socket.id) });
+      broadcast(io, result.room);
+      socket.emit("game:joined", { code: code.toUpperCase(), room: safeRoom(result.room, socket.id) });
     });
 
     socket.on("game:set_deck", async ({ code, deckId }) => {
@@ -65,8 +76,8 @@ module.exports = function registerGame(io) {
       broadcast(io, result.room);
     });
 
-    socket.on("game:mulligan", ({ code, keepInstanceIds }) => {
-      const result = doMulligan(code, socket.id, keepInstanceIds);
+    socket.on("game:mulligan", ({ code, returnInstanceIds }) => {
+      const result = doMulligan(code, socket.id, returnInstanceIds);
       if (result.error) return socket.emit("game:error", result.error);
       broadcast(io, result.room);
     });
@@ -79,16 +90,7 @@ module.exports = function registerGame(io) {
 
     socket.on("disconnect", () => {
       const result = removePlayer(socket.id);
-      if (result?.code && result.room) {
-        io.to(result.code).emit("game:opponent_left");
-      }
+      if (result?.code && result.room) io.to(result.code).emit("game:opponent_left");
     });
   });
 };
-
-function broadcast(io, room) {
-  for (const p of room.players) {
-    if (p.socketId === "bot") continue;
-    io.to(p.socketId).emit("game:state", { room: safeRoom(room, p.socketId) });
-  }
-}
