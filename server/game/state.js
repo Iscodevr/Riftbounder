@@ -89,7 +89,7 @@ function createRoom(hostSocketId, hostUserId, solo = false) {
     bot.mulliganDone = true;
     players.push(bot);
   }
-  const room = { code, phase: "deck_select", solo, players, turn: 0, battlefields: [] };
+  const room = { code, phase: "deck_select", solo, players, turn: 0, battlefields: [], activePlayer: null };
   rooms.set(code, room);
   return room;
 }
@@ -192,6 +192,7 @@ function doMulligan(code, socketId, returnInstanceIds) {
   if (room.players.every((pl) => pl.mulliganDone)) {
     room.phase = "playing";
     room.turn = 1;
+    room.activePlayer = 0; // P1 starts
   }
   return { room };
 }
@@ -209,6 +210,10 @@ function applyAction(code, socketId, action) {
 
     // ── ABCD : Début de tour ──────────────────────────────────────────────────
     case "START_TURN": {
+      // Only callable if activePlayer === null OR it's opponent's turn (your turn starts)
+      if (room.activePlayer !== null && room.activePlayer !== (opp?.playerIndex ?? 1 - p.playerIndex)) {
+        return { error: "Ce n'est pas ton tour de commencer" };
+      }
       // A — Awaken : désépuiser toutes ses cartes
       for (const zone of ["champion", "field", "spellZone", "runeHand"]) {
         p[zone].forEach((c) => { c.exhausted = false; });
@@ -236,17 +241,25 @@ function applyAction(code, socketId, action) {
       // Vider le pool d'énergie de l'ancien tour
       p.energy = 0;
       room.turn = (room.turn || 0) + 1;
+      room.activePlayer = p.playerIndex; // Action phase begins for this player
       break;
     }
 
     // ── Fin de tour : vider le pool d'énergie ────────────────────────────────
     case "FIN_TOUR": {
+      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+        return { error: "Ce n'est pas ton tour" };
+      }
       p.energy = 0;
+      room.activePlayer = opp ? opp.playerIndex : null; // Pass to opponent
       break;
     }
 
     // ── Pioches manuelles ────────────────────────────────────────────────────
     case "DRAW": {
+      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+        return { error: "Ce n'est pas ton tour" };
+      }
       if (p.deck.length === 0) {
         if (opp) { opp.score++; checkWin(room); }
         return { error: "Deck vide — Burn Out !" };
@@ -284,12 +297,20 @@ function applyAction(code, socketId, action) {
 
     // ── Jouer une carte ───────────────────────────────────────────────────────
     case "PLAY_TO_ZONE": {
+      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+        return { error: "Ce n'est pas ton tour" };
+      }
       let card;
       const hIdx = p.hand.findIndex((c) => c.instanceId === action.instanceId);
       const cIdx = p.champion.findIndex((c) => c.instanceId === action.instanceId);
-      if (hIdx !== -1) card = p.hand.splice(hIdx, 1)[0];
-      else if (cIdx !== -1) card = p.champion.splice(cIdx, 1)[0];
+      if (hIdx !== -1) card = p.hand[hIdx];
+      else if (cIdx !== -1) card = p.champion[cIdx];
       else return { error: "Carte non trouvée" };
+      const cost = Number(card.energy_cost) || 0;
+      if (p.energy < cost) return { error: `Pas assez d'énergie (${cost} requis, tu as ${p.energy})` };
+      p.energy -= cost;
+      if (hIdx !== -1) p.hand.splice(hIdx, 1)[0];
+      else p.champion.splice(cIdx, 1)[0];
       card.exhausted = false;
       const validZones = ["field", "spellZone"];
       p[validZones.includes(action.zone) ? action.zone : "field"].push(card);
@@ -298,6 +319,9 @@ function applyAction(code, socketId, action) {
 
     // ── Mouvement vers un Battlefield ────────────────────────────────────────
     case "MOVE_TO_BF": {
+      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+        return { error: "Ce n'est pas ton tour" };
+      }
       const found = findInZones(p, action.instanceId);
       if (!found) return { error: "Carte introuvable" };
       const card = removeFromZone(p, found.zone, found.idx);
@@ -321,6 +345,9 @@ function applyAction(code, socketId, action) {
 
     // ── Résoudre le combat ────────────────────────────────────────────────────
     case "RESOLVE_COMBAT": {
+      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+        return { error: "Ce n'est pas ton tour" };
+      }
       const bf = room.battlefields[action.bfIndex ?? 0];
       if (!bf) return { error: "Battlefield introuvable" };
       if (!opp) return { error: "Adversaire introuvable" };

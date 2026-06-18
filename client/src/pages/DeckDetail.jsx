@@ -92,6 +92,17 @@ export default function DeckDetail() {
   deck.cards.forEach((c) => { deckMap[c.id] = c.quantity; });
   const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0);
 
+  // Deck validation
+  const mainCards = deck.cards.filter(c => !["Rune","Token Rune","Legend","Champion Unit","Battlefield"].some(t => c.card_type?.includes(t)));
+  const runeCards = deck.cards.filter(c => c.card_type === "Rune" || c.card_type === "Token Rune");
+  const mainCount = mainCards.reduce((s, c) => s + c.quantity, 0);
+  const runeCount = runeCards.reduce((s, c) => s + c.quantity, 0);
+  const overLimit = deck.cards.filter(c => c.quantity > 3);
+  const warnings = [];
+  if (mainCount !== 40) warnings.push(`Deck principal: ${mainCount}/40 cartes`);
+  if (runeCount !== 12) warnings.push(`Runes: ${runeCount}/12`);
+  overLimit.forEach(c => warnings.push(`${c.name}: ${c.quantity} copies (max 3)`));
+
   return (
     <div className="page">
       {/* Header */}
@@ -104,9 +115,16 @@ export default function DeckDetail() {
             <button className="btn-ghost text-sm" onClick={() => setEditing(false)}>Annuler</button>
           </div>
         ) : (
-          <h1 className="text-2xl font-bold text-white flex-1 cursor-pointer hover:text-gold-400 transition-colors" onClick={() => setEditing(true)}>
-            {deck.name} <span className="text-sm text-gray-500 font-normal ml-2">{totalCards} cartes</span>
-          </h1>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-white cursor-pointer hover:text-gold-400 transition-colors" onClick={() => setEditing(true)}>
+              {deck.name} <span className="text-sm text-gray-500 font-normal ml-2">{mainCount} cartes main · {runeCount} runes</span>
+            </h1>
+            {warnings.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {warnings.map(w => <span key={w} className="text-xs bg-red-900/40 text-red-300 px-2 py-0.5 rounded">{w}</span>)}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

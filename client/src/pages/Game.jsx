@@ -231,6 +231,11 @@ function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size =
       {!faceDown && card.might && (
         <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-center text-[7px] text-white leading-tight px-0.5">{card.might}</div>
       )}
+      {zone === "hand" && !faceDown && card.energy_cost && Number(card.energy_cost) > 0 && (
+        <div className="absolute top-0.5 right-0.5 bg-blue-600 text-white text-[7px] font-bold px-0.5 rounded">
+          {card.energy_cost}⚡
+        </div>
+      )}
     </div>
   );
 }
@@ -257,7 +262,7 @@ function DropZone({ label, cards = [], onDrop, onCardTap, onCardLongPress, isMe,
 }
 
 // ── Card menu ─────────────────────────────────────────────────────────────────
-function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose }) {
+function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEnergy = 0 }) {
   const fromHand = zone === "hand";
   const fromChampion = zone === "champion";
   const fromBF = typeof bfIndex === "number";
@@ -271,9 +276,12 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose }) {
       { label: "Recycler (→ +1 énergie domaine)", action: { type: "RECYCLE_RUNE", instanceId: card.instanceId } },
     ];
   } else if (fromHand) {
+    const cost = Number(card.energy_cost) || 0;
+    const cantAfford = cost > myEnergy;
+    const costLabel = cost > 0 ? ` (coût: ${cost}⚡)` : "";
     actions = [
-      { label: "→ Base (jouer unité/gear)", action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" } },
-      { label: "→ Zone Sort", action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "spellZone" } },
+      { label: `→ Base (jouer unité/gear)${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" }, disabled: cantAfford },
+      { label: `→ Zone Sort${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "spellZone" }, disabled: cantAfford },
       { label: "Défausser", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
       { label: "Bannir", action: { type: "BANISH", instanceId: card.instanceId } },
     ];
@@ -321,8 +329,9 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose }) {
           </div>
         </div>
         {actions.map((a) => (
-          <button key={a.label} onClick={() => { onAction(a.action); onClose(); }}
-            className="w-full text-left px-4 py-2 rounded-xl text-sm text-white hover:bg-gray-800 transition-colors">{a.label}</button>
+          <button key={a.label} onClick={() => { if (!a.disabled) { onAction(a.action); onClose(); } }}
+            disabled={a.disabled}
+            className={`w-full text-left px-4 py-2 rounded-xl text-sm transition-colors ${a.disabled ? "text-gray-600 cursor-not-allowed" : "text-white hover:bg-gray-800"}`}>{a.label}{a.disabled ? " — pas assez d'⚡" : ""}</button>
         ))}
         <button onClick={onClose} className="w-full text-center px-4 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-800">Annuler</button>
       </div>
@@ -478,19 +487,24 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const me = room.players.find((p) => p.socketId === mySocketId);
   const opp = room.players.find((p) => p.socketId !== mySocketId);
   const myIdx = me?.playerIndex ?? 0;
+  const isMyTurn = room.activePlayer === myIdx;
   const send = useCallback((action) => getSocket().emit("game:action", { code, action }), [code]);
 
   if (room.phase === "ended") return <EndScreen room={room} mySocketId={mySocketId} />;
 
   const onCardTap = (card, zone, bfIndex) => {
-    // Click simple sur rune = épuiser pour énergie
-    if (zone === "runeHand") { send({ type: "EXHAUST_RUNE", instanceId: card.instanceId }); return; }
+    // Click simple sur rune = épuiser pour énergie (seulement si c'est mon tour)
+    if (zone === "runeHand") {
+      if (isMyTurn) send({ type: "EXHAUST_RUNE", instanceId: card.instanceId });
+      return;
+    }
     // Sinon ouvrir le menu
     setMenu({ card, zone, bfIndex });
   };
   const onCardLongPress = (card, zone, bfIndex) => setMenu({ card, zone, bfIndex });
 
   const handleDrop = (toZone) => (card, fromZone, fromBfIndex) => {
+    if (!isMyTurn) return; // Disable drag-drop when not my turn
     if (toZone === "bf") return; // géré par BattlefieldZone
     if (fromZone === "hand" || fromZone === "champion") {
       send({ type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: toZone });
@@ -502,6 +516,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
   };
 
   const handleDropToBF = (card, fromZone, bfId) => {
+    if (!isMyTurn) return;
     send({ type: "MOVE_TO_BF", instanceId: card.instanceId, bfIndex: bfId });
   };
 
@@ -527,17 +542,26 @@ function Board({ room: initialRoom, mySocketId, code }) {
         </div>
         <div className="flex-1" />
         {/* Actions */}
-        <button onClick={() => send({ type: "START_TURN" })}
-          className="bg-green-700/30 hover:bg-green-700/60 text-green-400 rounded px-2 py-0.5 font-semibold text-[10px] transition-colors">
-          ▶ Début de tour
-        </button>
-        <button onClick={() => send({ type: "FIN_TOUR" })}
-          className="bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400 rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ml-1">
+        {(() => {
+          const canStartTurn = room.activePlayer === null || room.activePlayer === opp?.playerIndex;
+          return (
+            <button onClick={() => send({ type: "START_TURN" })} disabled={!canStartTurn}
+              className={`rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ${canStartTurn ? "bg-green-700/30 hover:bg-green-700/60 text-green-400" : "bg-gray-800/30 text-gray-600 cursor-not-allowed"}`}>
+              ▶ Début de tour
+            </button>
+          );
+        })()}
+        <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
+          className={`rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ml-1 ${isMyTurn ? "bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400" : "bg-gray-800/30 text-gray-600 cursor-not-allowed"}`}>
           ■ Fin de tour
         </button>
         <div className="w-px h-4 bg-gray-700 mx-1" />
         {/* Score moi */}
         <ScoreBadge score={me?.score ?? 0} isMe />
+      </div>
+      {/* ══ Turn banner ══ */}
+      <div className={`shrink-0 text-center text-[10px] font-bold py-0.5 ${isMyTurn ? "bg-green-900/40 text-green-400" : "bg-gray-800/40 text-gray-500"}`}>
+        {isMyTurn ? "🟢 Ton tour" : "⏳ Tour adverse"}
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -672,7 +696,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
       {menu && (
         <CardMenu card={menu.card} zone={menu.zone} bfIndex={menu.bfIndex}
-          battlefields={bfs} onAction={send} onClose={() => setMenu(null)} />
+          battlefields={bfs} onAction={send} onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0} />
       )}
     </div>
   );
