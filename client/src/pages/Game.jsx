@@ -352,19 +352,20 @@ function GameLog({ log, myPlayerIndex }) {
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [log]);
   const last = log[log.length - 1];
   return (
-    <div className="absolute bottom-20 right-1 z-30 flex flex-col items-end gap-1">
+    <div className="relative flex items-center">
       {open && (
-        <div ref={ref} className="w-56 max-h-48 overflow-y-auto bg-gray-900/95 border border-gray-700 rounded-xl p-2 space-y-0.5 text-[10px]">
+        <div ref={ref} className="absolute bottom-7 right-0 w-56 max-h-44 overflow-y-auto bg-gray-900 border border-gray-700 rounded-xl p-2 space-y-0.5 text-[10px] z-40 shadow-xl">
           {log.map((e) => (
-            <div key={e.id} className={`${e.playerIndex === myPlayerIndex ? "text-yellow-300" : "text-gray-400"}`}>
+            <div key={e.id} className={e.playerIndex === myPlayerIndex ? "text-yellow-300" : "text-gray-400"}>
               <span className="text-gray-600">T{e.turn} </span>{e.text}
             </div>
           ))}
+          {!log.length && <span className="text-gray-700">Aucune action</span>}
         </div>
       )}
       <button onClick={() => setOpen(o => !o)}
-        className="bg-gray-800 border border-gray-700 rounded-full px-2 py-0.5 text-[10px] text-gray-400 hover:text-white">
-        📋 {open ? "Fermer" : (last ? last.text.slice(0, 20) + "…" : "Log")}
+        className="text-[10px] text-gray-500 hover:text-gray-300 px-1 transition-colors">
+        📋{open ? "▾" : "▸"}
       </button>
     </div>
   );
@@ -635,98 +636,86 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
   const bfs = room.battlefields || [];
 
+  const canStartTurn = room.activePlayer === null || room.activePlayer === opp?.playerIndex;
+
   return (
     <div className="fixed inset-0 bg-gray-950 overflow-hidden select-none flex flex-col" style={{ touchAction: "manipulation" }}>
 
-      {/* ══ Top info bar ══ */}
-      <div className="shrink-0 flex items-center gap-2 px-2 py-1 bg-gray-900 border-b border-gray-800 text-[10px]">
-        {/* Score adversaire */}
-        <ScoreBadge score={opp?.score ?? 0} isMe={false} />
-        <div className="w-px h-4 bg-gray-700 mx-1" />
-        <span className="text-gray-600 font-mono">{code}</span>
-        <span className="text-gray-700">·</span>
-        <span className="text-gray-600">Tour {room.turn ?? 1}</span>
-        {/* Énergie */}
-        <div className="flex items-center gap-1 ml-1">
-          <span className="text-blue-400">⚡</span>
-          <span className="text-blue-400 font-bold">{me?.energy ?? 0}</span>
+      {/* ══ Barre unique (scores + tour + code + énergie) — 26px ══ */}
+      <div className={`shrink-0 flex items-center gap-1.5 px-2 border-b text-[10px] h-[26px]
+        ${isMyTurn ? "bg-green-950/60 border-green-900/50" : "bg-gray-900 border-gray-800"}`}>
+        {/* Score adv */}
+        <span className="text-gray-500 font-bold tabular-nums">{opp?.score ?? 0}</span>
+        <div className="w-20 h-1 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-full bg-gray-600 rounded-full" style={{ width: `${Math.min((opp?.score ?? 0) / 8, 1) * 100}%` }} />
         </div>
-        <div className="flex-1" />
-        {/* Actions */}
-        {(() => {
-          const canStartTurn = room.activePlayer === null || room.activePlayer === opp?.playerIndex;
-          return (
-            <button onClick={() => send({ type: "START_TURN" })} disabled={!canStartTurn}
-              className={`rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ${canStartTurn ? "bg-green-700/30 hover:bg-green-700/60 text-green-400" : "bg-gray-800/30 text-gray-600 cursor-not-allowed"}`}>
-              ▶ Début de tour
-            </button>
-          );
-        })()}
-        <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
-          className={`rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ml-1 ${isMyTurn ? "bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400" : "bg-gray-800/30 text-gray-600 cursor-not-allowed"}`}>
-          ■ Fin de tour
-        </button>
-        <button onClick={() => isMyTurn && setTokenPicker(true)}
-          disabled={!isMyTurn}
-          className="text-gray-400 hover:text-white disabled:opacity-30 px-1 transition-colors text-[10px]">
-          🪙 Token
-        </button>
-        <div className="w-px h-4 bg-gray-700 mx-1" />
-        {/* Score moi */}
-        <ScoreBadge score={me?.score ?? 0} isMe />
-      </div>
-      {/* ══ Turn banner ══ */}
-      <div className={`shrink-0 text-center text-[10px] font-bold py-0.5 ${isMyTurn ? "bg-green-900/40 text-green-400" : "bg-gray-800/40 text-gray-500"}`}>
-        {isMyTurn ? "🟢 Ton tour" : "⏳ Tour adverse"}
+        <span className="text-gray-700">/8</span>
+        {/* Légende adv */}
+        {opp?.legendCard?.image_small && (
+          <img src={opp.legendCard.image_small} title={opp.legendCard.name}
+            className="h-4 aspect-[2.5/3.5] object-cover rounded opacity-70 ml-0.5" alt="" />
+        )}
+        {/* Infos adv */}
+        <span className="text-gray-700">🃏{opp?.hand?.length ?? 0}</span>
+        <button onClick={() => setZoneViewer({ title: "Défausse adv.", cards: opp?.graveyard || [], isMe: false })}
+          className="text-gray-700 hover:text-gray-500">💀{opp?.graveyardSize ?? 0}</button>
+
+        {/* Centre : tour + code */}
+        <div className="flex-1 flex items-center justify-center gap-1">
+          <span className={`w-1.5 h-1.5 rounded-full ${isMyTurn ? "bg-green-400" : "bg-gray-600"}`} />
+          <span className="text-gray-700 font-mono text-[9px]">{code} T{room.turn ?? 1}</span>
+        </div>
+
+        {/* Infos moi */}
+        <button onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}
+          className="text-gray-600 hover:text-gray-400">💀{me?.graveyardSize ?? 0}</button>
+        <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })}
+          className="text-gray-700 hover:text-gray-500">🚫{me?.banishmentSize ?? 0}</button>
+        {me?.legendCard?.image_small && (
+          <img src={me.legendCard.image_small} title={me.legendCard.name}
+            className="h-4 aspect-[2.5/3.5] object-cover rounded opacity-80 ml-0.5" alt="" />
+        )}
+        {/* Score moi + énergie */}
+        <span className="text-blue-400 font-bold">⚡{me?.energy ?? 0}</span>
+        <span className="text-gray-700">/8</span>
+        <div className="w-20 h-1 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((me?.score ?? 0) / 8, 1) * 100}%` }} />
+        </div>
+        <span className="text-yellow-400 font-bold tabular-nums">{me?.score ?? 0}</span>
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
-        {/* ══ Zone ADVERSAIRE ══ */}
-        <div className="flex flex-col gap-0.5 px-1 pt-0.5 shrink-0">
+        {/* ══ ADVERSAIRE ══ */}
+        <div className="flex flex-col gap-px px-1 pt-px shrink-0">
 
-          {/* Légende adversaire (fixe, jamais en jeu) + infos */}
-          <div className="flex items-center gap-1 h-7">
-            {opp?.legendCard?.image_small && (
-              <img src={opp.legendCard.image_small} alt={opp.legendCard.name} title={opp.legendCard.name}
-                className="h-full aspect-[2.5/3.5] object-cover rounded opacity-80 border border-gray-700" />
-            )}
-            <span className="text-[8px] text-gray-600 italic truncate">{opp?.legendCard?.name || "Légende inconnue"}</span>
-            <div className="flex-1" />
-            <span className="text-[8px] text-gray-600">🃏{opp?.hand?.length ?? 0}</span>
-            <span className="text-[8px] text-gray-600 ml-1">🂠{opp?.deckSize ?? 0}</span>
-            <span className="text-[8px] text-gray-600 ml-1">💀{opp?.graveyardSize ?? 0}</span>
-          </div>
-
-          {/* Runes adversaire */}
-          <div className="h-8">
+          {/* Runes adv — 26px */}
+          <div className="h-[26px]">
             <RuneRow p={opp} isMe={false} onCardTap={() => {}} onCardLongPress={() => {}} />
           </div>
 
-          {/* Base adversaire : Champion | Field | Sort | Deck */}
-          <div className="flex gap-1 h-[62px]">
-            {/* Champion zone */}
-            <div className="w-10 shrink-0 h-full rounded border border-purple-900/40 bg-purple-950/10 flex flex-col items-center justify-center gap-0.5 overflow-hidden">
+          {/* Base adv : Champion | Field | Sort | Deck — 44px */}
+          <div className="flex gap-px h-[44px]">
+            <div className="w-9 shrink-0 h-full rounded border border-purple-900/30 bg-purple-950/10 flex items-center justify-center overflow-hidden">
               {(opp?.champion || []).slice(0, 1).map((c) => (
                 <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="sm" />
               ))}
-              {(opp?.champion || []).length === 0 && <span className="text-[7px] text-purple-900">Champ.</span>}
+              {!(opp?.champion?.length) && <span className="text-[6px] text-purple-900">C</span>}
             </div>
-            {/* Field/Base */}
-            <DropZone label="Base adv." cards={opp?.field || []} isMe={false} className="flex-1 h-full overflow-x-auto" horizontal size="sm" />
-            {/* Sort */}
-            <DropZone label="Sort" cards={opp?.spellZone || []} isMe={false} className="w-10 shrink-0 h-full" size="sm" />
-            {/* Deck */}
-            <div className="w-9 shrink-0 h-full bg-gray-800/30 border border-gray-700/30 rounded text-[8px] text-gray-600 flex flex-col items-center justify-center gap-0.5">
+            <DropZone label="Base adv." cards={opp?.field || []} isMe={false}
+              className="flex-1 h-full overflow-x-auto" horizontal size="sm" />
+            <DropZone label="Sort" cards={opp?.spellZone || []} isMe={false}
+              className="w-9 shrink-0 h-full" size="sm" />
+            <div className="w-8 shrink-0 h-full bg-gray-800/20 border border-gray-800 rounded text-[7px] text-gray-700 flex flex-col items-center justify-center">
               <span>🂠</span><span>{opp?.deckSize ?? 0}</span>
             </div>
           </div>
         </div>
 
-        {/* ══ Zone BATTLEFIELDS partagée ══ */}
-        <div className="shrink-0 px-1 py-0.5">
+        {/* ══ BATTLEFIELDS partagés ══ */}
+        <div className="shrink-0 px-1 py-px">
           {bfs.length > 0 ? (
-            <div className="flex gap-1 h-[110px]">
+            <div className="flex gap-1 h-[88px]">
               {bfs.map((bf) => (
                 <BattlefieldZone key={bf.id} bf={bf} myPlayerIndex={myIdx} isMe
                   onCardTap={onCardTap} onCardLongPress={onCardLongPress}
@@ -734,77 +723,76 @@ function Board({ room: initialRoom, mySocketId, code }) {
               ))}
             </div>
           ) : (
-            <div className="h-6 flex items-center justify-center text-[8px] text-gray-800 border border-dashed border-gray-800 rounded">
-              Aucun Battlefield sélectionné
+            <div className="h-4 flex items-center justify-center text-[7px] text-gray-800 border border-dashed border-gray-800 rounded">
+              Aucun Battlefield
             </div>
           )}
         </div>
 
-        {/* ══ Zone MOI ══ */}
-        <div className="flex flex-col gap-0.5 px-1 pb-0.5 flex-1 min-h-0">
+        {/* ══ MOI ══ */}
+        <div className="flex flex-col gap-px px-1 pb-px flex-1 min-h-0">
 
-          {/* Ma base : Champion | Field | Sort | Deck */}
-          <div className="flex gap-1 flex-1 min-h-0">
-            {/* Champion zone — la carte part d'ici, jamais reshufflée */}
-            <div className="w-10 shrink-0 h-full rounded border border-purple-700/40 bg-purple-950/10 flex flex-col items-center justify-center gap-0.5 overflow-hidden">
+          {/* Ma base : Champion | Field | Sort | Pioche — flex-1 */}
+          <div className="flex gap-px flex-1 min-h-0">
+            <div className="w-9 shrink-0 h-full rounded border border-purple-700/30 bg-purple-950/10 flex items-center justify-center overflow-hidden">
               {(me?.champion || []).slice(0, 1).map((c) => (
                 <GameCard key={c.instanceId} card={c} zone="champion" isMe size="sm"
                   onTap={onCardTap} onLongPress={onCardLongPress} />
               ))}
-              {(me?.champion || []).length === 0 && <span className="text-[7px] text-purple-700">Champ.</span>}
+              {!(me?.champion?.length) && <span className="text-[6px] text-purple-700">C</span>}
             </div>
-            {/* Field / Base */}
             <DropZone label="Base" cards={me?.field || []}
               onDrop={handleDrop("field")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
               isMe className="flex-1 h-full overflow-auto" horizontal size="sm" />
-            {/* Sort */}
             <DropZone label="Sort" cards={me?.spellZone || []}
               onDrop={handleDrop("spellZone")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-              isMe className="w-10 shrink-0 h-full" size="sm" />
-            {/* Pioche */}
-            <button onClick={() => send({ type: "DRAW" })}
-              className="w-9 shrink-0 h-full bg-gray-800/60 hover:bg-gray-700 border border-gray-700 rounded text-[8px] text-gray-400 flex flex-col items-center justify-center gap-0.5 transition-colors">
+              isMe className="w-9 shrink-0 h-full" size="sm" />
+            <button onClick={() => isMyTurn && send({ type: "DRAW" })}
+              className="w-8 shrink-0 h-full bg-gray-800/50 border border-gray-700 rounded text-[7px] text-gray-400 flex flex-col items-center justify-center transition-colors hover:bg-gray-700">
               <span>🂠</span><span>{me?.deckSize ?? 0}</span>
             </button>
           </div>
 
-          {/* Mes runes */}
-          <div className="h-9 flex gap-1">
+          {/* Mes runes — 26px */}
+          <div className="h-[26px] flex gap-px">
             <div className="flex-1">
               <RuneRow p={me} isMe onCardTap={onCardTap} onCardLongPress={onCardLongPress} />
             </div>
-            {/* Défausse */}
             <button onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}
-              className="w-9 shrink-0 h-full bg-gray-800/30 border border-gray-700/30 rounded text-[8px] text-gray-500 flex flex-col items-center justify-center gap-0.5 hover:border-gray-500 transition-colors">
+              className="w-8 shrink-0 h-full bg-gray-800/20 border border-gray-800 rounded text-[7px] text-gray-500 flex flex-col items-center justify-center hover:border-gray-600 transition-colors">
               <span>💀</span><span>{me?.graveyardSize ?? 0}</span>
             </button>
-          </div>
-
-          {/* Légende (fixe, jamais en jeu) */}
-          <div className="flex items-center gap-1 h-6">
-            {me?.legendCard?.image_small && (
-              <img src={me.legendCard.image_small} alt={me.legendCard.name} title={me.legendCard.name}
-                className="h-full aspect-[2.5/3.5] object-cover rounded border border-gray-600" />
-            )}
-            <span className="text-[8px] text-gray-500 italic">{me?.legendCard?.name || "Légende"}</span>
-            <div className="flex-1" />
-            <button onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })} className="text-[8px] text-gray-600 hover:text-gray-400">💀{me?.graveyardSize ?? 0}</button>
-            <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })} className="text-[8px] text-gray-600 hover:text-gray-400 ml-1">🚫{me?.banishmentSize ?? 0}</button>
           </div>
         </div>
       </div>
 
-      {/* ══ Main ══ */}
-      <div className="shrink-0 flex gap-1 overflow-x-auto px-2 py-1.5 bg-gray-900/95 border-t border-gray-800 min-h-[72px] items-end">
+      {/* ══ Main — 58px ══ */}
+      <div className="shrink-0 flex gap-0.5 overflow-x-auto px-1 py-1 bg-gray-900/95 border-t border-gray-800 h-[58px] items-center">
         {(me?.hand || []).map((card) => (
           <GameCard key={card.instanceId} card={card} zone="hand" isMe size="md"
             onTap={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })}
             onLongPress={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })} />
         ))}
-        {(me?.hand?.length ?? 0) === 0 && <span className="text-[10px] text-gray-700 self-center px-2">Main vide</span>}
+        {!(me?.hand?.length) && <span className="text-[9px] text-gray-700 px-2">Main vide</span>}
       </div>
 
-      <GameLog log={room.log || []} myPlayerIndex={myIdx} />
+      {/* ══ Barre d'actions — 28px ══ */}
+      <div className="shrink-0 flex items-center gap-1 px-2 bg-gray-900 border-t border-gray-800 h-[28px]">
+        <button onClick={() => send({ type: "START_TURN" })} disabled={!canStartTurn}
+          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${canStartTurn ? "bg-green-700/40 text-green-300 hover:bg-green-700/70" : "text-gray-700 cursor-not-allowed"}`}>
+          ▶ Début
+        </button>
+        <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
+          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${isMyTurn ? "bg-yellow-700/40 text-yellow-300 hover:bg-yellow-700/70" : "text-gray-700 cursor-not-allowed"}`}>
+          ■ Fin
+        </button>
+        <button onClick={() => isMyTurn && setTokenPicker(true)} disabled={!isMyTurn}
+          className="px-1.5 py-0.5 rounded text-[10px] text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-colors">
+          🪙
+        </button>
+        <div className="flex-1" />
+        <GameLog log={room.log || []} myPlayerIndex={myIdx} />
+      </div>
 
       {/* ══ Toast erreur ══ */}
       {error && (
