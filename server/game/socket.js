@@ -10,6 +10,7 @@ function safeRoom(room, viewerSocketId) {
     phase: room.phase,
     solo: room.solo,
     turn: room.turn,
+    activePlayer: room.activePlayer,
     winner: room.winner,
     log: (room.log || []).slice(-30),
     // Battlefields partagés — visibles par tous avec leurs unités
