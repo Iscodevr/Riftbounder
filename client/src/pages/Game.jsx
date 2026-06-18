@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../hooks/useLanguage";
 import { useApi } from "../hooks/useApi";
 import { getSocket, useSocket } from "../hooks/useSocket";
 
@@ -590,6 +591,9 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const [zoneViewer, setZoneViewer] = useState(null);
   const [tokenPicker, setTokenPicker] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [gameMenu, setGameMenu] = useState(false);
+  const { logout } = useAuth();
+  const { lang, toggleLang } = useLanguage();
 
   useSocket({
     "game:state": ({ room }) => setRoom(room),
@@ -728,8 +732,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
           <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((me?.score ?? 0) / 8, 1) * 100}%` }} />
         </div>
         <span className="text-sm font-black text-yellow-400">{me?.score ?? 0}</span>
-        <button onClick={toggleFullscreen} className="text-gray-500 hover:text-gray-300 text-base leading-none ml-1">
-          {isFullscreen ? "⊡" : "⛶"}
+        <button onClick={() => setGameMenu(true)} className="text-gray-400 hover:text-white text-lg leading-none ml-1 px-1">
+          ☰
         </button>
       </div>
 
@@ -914,6 +918,38 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {error && (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg whitespace-nowrap">
           {error}
+        </div>
+      )}
+
+      {gameMenu && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setGameMenu(false)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-t-2xl w-full max-w-sm p-4 space-y-2" onClick={e => e.stopPropagation()}>
+            <p className="text-xs text-gray-500 text-center pb-1">Menu partie — {code}</p>
+            <button onClick={() => { toggleFullscreen(); setGameMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800 transition-colors">
+              <span className="text-lg">{isFullscreen ? "⊡" : "⛶"}</span>
+              {isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+            </button>
+            <button onClick={() => { toggleLang(); setGameMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800 transition-colors">
+              <span className="text-lg">{lang === "fr" ? "🇫🇷" : "🇬🇧"}</span>
+              Langue : {lang === "fr" ? "Français" : "English"}
+            </button>
+            <button onClick={() => { navigate("/decks"); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-yellow-400 hover:bg-gray-800 transition-colors">
+              <span className="text-lg">🚪</span>
+              Quitter la partie
+            </button>
+            <button onClick={() => { logout(); navigate("/login"); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400 hover:bg-gray-800 transition-colors">
+              <span className="text-lg">⏻</span>
+              Déconnexion
+            </button>
+            <button onClick={() => setGameMenu(false)}
+              className="w-full py-3 text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              Annuler
+            </button>
+          </div>
         </div>
       )}
 

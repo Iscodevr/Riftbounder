@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { LanguageProvider } from "./hooks/useLanguage";
 import Navbar from "./components/Navbar";
@@ -17,9 +17,11 @@ function PrivateRoute({ children }) {
 
 function Layout() {
   const { user } = useAuth();
+  const location = useLocation();
+  const isGame = location.pathname === "/game";
   return (
     <>
-      {user && <Navbar />}
+      {user && !isGame && <Navbar />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Catalogue /></PrivateRoute>} />
