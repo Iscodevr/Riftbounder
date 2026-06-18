@@ -677,28 +677,58 @@ function Board({ room: initialRoom, mySocketId, code }) {
     </div>
   );
 
-  // Cellule zone avec label et contenu
-  const ZoneCell = ({ label, border = "border-gray-700/40", bg = "bg-black/30", className = "", children, onClick }) => (
-    <div onClick={onClick}
-      className={`relative flex flex-col items-center justify-center rounded border ${border} ${bg} overflow-hidden ${className} ${onClick ? "cursor-pointer active:opacity-80" : ""}`}>
-      {children}
-      <span className="absolute bottom-0.5 left-0 right-0 text-center text-[8px] text-gray-600 leading-none truncate px-0.5">{label}</span>
-    </div>
-  );
+  // Cellule avec bordures décoratives Riftbound (corner brackets + mid dots)
+  const RiftCell = ({ label, className = "", children, onClick, accent = "white" }) => {
+    const c = accent === "blue" ? "border-blue-400/40" : accent === "purple" ? "border-purple-400/40" : accent === "amber" ? "border-amber-400/40" : "border-white/25";
+    const cc = accent === "blue" ? "border-blue-300/50" : accent === "purple" ? "border-purple-300/50" : accent === "amber" ? "border-amber-300/50" : "border-white/45";
+    const dot = accent === "blue" ? "bg-blue-300/35" : accent === "purple" ? "bg-purple-300/35" : accent === "amber" ? "bg-amber-300/35" : "bg-white/25";
+    return (
+      <div onClick={onClick}
+        className={`relative bg-black/50 ${className} ${onClick ? "cursor-pointer active:bg-white/5" : ""}`}>
+        {/* thin outer border */}
+        <div className={`absolute inset-0 border ${c}`} />
+        {/* corner brackets */}
+        <div className={`absolute top-0 left-0 w-2.5 h-2.5 border-t-[1.5px] border-l-[1.5px] ${cc}`} />
+        <div className={`absolute top-0 right-0 w-2.5 h-2.5 border-t-[1.5px] border-r-[1.5px] ${cc}`} />
+        <div className={`absolute bottom-0 left-0 w-2.5 h-2.5 border-b-[1.5px] border-l-[1.5px] ${cc}`} />
+        <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-b-[1.5px] border-r-[1.5px] ${cc}`} />
+        {/* mid dots */}
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-1 h-[3px] ${dot}`} />
+        <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-[3px] ${dot}`} />
+        <div className={`absolute left-0 top-1/2 -translate-y-1/2 h-1 w-[3px] ${dot}`} />
+        <div className={`absolute right-0 top-1/2 -translate-y-1/2 h-1 w-[3px] ${dot}`} />
+        {/* content */}
+        <div className="relative z-10 h-full flex flex-col items-center justify-center">
+          {children}
+        </div>
+        {/* label */}
+        {label && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[7px] text-white/35 leading-none z-10 pointer-events-none">{label}</span>}
+      </div>
+    );
+  };
 
   // Runes inline (pour les lignes de runes)
   const InlineRunes = ({ runeHand = [], isMe: rIsMe }) => (
     <div className="flex gap-0.5 h-full w-full p-0.5">
       {Array.from({ length: 6 }).map((_, i) => {
         const card = runeHand[i];
-        if (!card) return <div key={i} className="flex-1 h-full rounded border border-dashed border-gray-700/30" />;
+        if (!card) return (
+          <div key={i} className="relative flex-1 h-full bg-black/40">
+            <div className="absolute inset-0 border border-white/15" />
+            <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-white/30" />
+            <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-white/30" />
+            <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-white/30" />
+            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-white/30" />
+          </div>
+        );
         if (!rIsMe) return (
-          <div key={card.instanceId} className="flex-1 h-full rounded overflow-hidden border border-blue-800/30 bg-blue-950/20 flex items-center justify-center">
-            <span className="text-[9px] text-blue-600">◆</span>
+          <div key={card.instanceId} className="relative flex-1 h-full bg-blue-950/30 flex items-center justify-center">
+            <div className="absolute inset-0 border border-blue-400/30" />
+            <span className="text-[9px] text-blue-400/60 relative z-10">◆</span>
           </div>
         );
         return (
-          <div key={card.instanceId} className="flex-1 h-full min-w-0 rounded overflow-hidden">
+          <div key={card.instanceId} className="flex-1 h-full min-w-0 relative">
             <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
           </div>
         );
@@ -742,63 +772,61 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {!(opp?.hand?.length) && <span className="text-xs text-gray-700 px-2">— main adv. —</span>}
       </div>
 
-      {/* ══ Zone adversaire : 3 lignes ══ */}
-      <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5">
+      {/* ══ Zone adversaire — rotate 180° (vue depuis l'adversaire) ══ */}
+      {/* DOM order: row closest to BF first → après rotation il apparaît visuellement en bas (proche BF) */}
+      <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5" style={{ transform: "rotate(180deg)" }}>
 
-        {/* Adv ligne 1 : Trash | Runes | RuneDeck */}
+        {/* DOM row 1 → visuel bas après rotation : Champ | Legend | BF-ref | spacer */}
         <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Trash" border="border-gray-700/40" className={SM}
-            onClick={() => setZoneViewer({ title: "Défausse adv.", cards: opp?.graveyard || [], isMe: false })}>
-            <span className="text-lg">🗑</span>
-            <span className="text-[9px] text-gray-500">{opp?.graveyardSize ?? 0}</span>
-          </ZoneCell>
-          <ZoneCell label="Runes" border="border-blue-900/40" bg="bg-blue-950/10" className="flex-1">
-            <InlineRunes runeHand={opp?.runeHand || []} isMe={false} />
-          </ZoneCell>
-          <ZoneCell label="Runes Deck" border="border-blue-900/40" bg="bg-blue-950/20" className={SM}>
-            <span className="text-lg text-blue-600">◆</span>
-            <span className="text-[9px] text-blue-400">{opp?.runeDeckSize ?? 0}</span>
-          </ZoneCell>
-        </div>
-
-        {/* Adv ligne 2 : Main Deck | Base */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Main Deck" border="border-gray-700/40" className={SM}>
-            <span className="text-lg">🂠</span>
-            <span className="text-[9px] text-gray-500">{opp?.deckSize ?? 0}</span>
-          </ZoneCell>
-          <ZoneCell label="Base" border="border-gray-700/30" className="flex-1">
-            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-              {(opp?.field || []).map((c) => (
-                <GameCard key={c.instanceId} card={c} zone="opp-field" isMe={false} size="fill"
-                  className="w-[36px] h-full shrink-0" />
-              ))}
-              {!(opp?.field?.length) && <span className="text-[9px] text-gray-700 w-full text-center">Base</span>}
-            </div>
-          </ZoneCell>
-        </div>
-
-        {/* Adv ligne 3 (proche BF) : Legend | Champion | BF-ref */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Legend" border="border-amber-800/40" bg="bg-amber-950/10" className={SM}
-            onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
-            {opp?.legendCard
-              ? <GameCard card={opp.legendCard} zone="opp-legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-sm text-amber-800">♛</span>}
-          </ZoneCell>
-          <ZoneCell label="Champion" border="border-purple-800/40" bg="bg-purple-950/10" className={SM}>
+          <RiftCell label="Champion" accent="purple" className={SM}>
             {(opp?.champion || []).slice(0, 1).map((c) => (
               <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-[44px]" />
             ))}
-            {!(opp?.champion?.length) && <span className="text-sm text-purple-800">⚔</span>}
-          </ZoneCell>
-          <ZoneCell label="BF sélectionné" border="border-gray-700/20" bg="bg-transparent" className={SM}
-            onClick={() => opp?.battlefieldCard && setZoom(opp.battlefieldCard)}>
+            {!(opp?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          </RiftCell>
+          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
+            {opp?.legendCard
+              ? <GameCard card={opp.legendCard} zone="opp-legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
+              : <span className="text-base text-amber-500/60">♛</span>}
+          </RiftCell>
+          <RiftCell label="Battlefield" className={SM} onClick={() => opp?.battlefieldCard && setZoom(opp.battlefieldCard)}>
             {opp?.battlefieldCard
               ? <GameCard card={opp.battlefieldCard} zone="opp-bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-gray-800">—</span>}
-          </ZoneCell>
+              : <span className="text-[9px] text-white/20">—</span>}
+          </RiftCell>
           <div className="flex-1" />
+        </div>
+
+        {/* DOM row 2 → visuel milieu : Main Deck | Base */}
+        <div className={`flex gap-0.5 ${ROW}`}>
+          <RiftCell label="Main Deck" className={SM}>
+            <span className="text-xl">🂠</span>
+            <span className="text-[9px] text-white/50">{opp?.deckSize ?? 0}</span>
+          </RiftCell>
+          <RiftCell label="Base" className="flex-1">
+            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
+              {(opp?.field || []).map((c) => (
+                <GameCard key={c.instanceId} card={c} zone="opp-field" isMe={false} size="fill" className="w-[36px] h-full shrink-0" />
+              ))}
+              {!(opp?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
+            </div>
+          </RiftCell>
+        </div>
+
+        {/* DOM row 3 → visuel haut après rotation : Trash | Runes | Runes Deck */}
+        <div className={`flex gap-0.5 ${ROW}`}>
+          <RiftCell label="Trash" className={SM}
+            onClick={() => setZoneViewer({ title: "Défausse adv.", cards: opp?.graveyard || [], isMe: false })}>
+            <span className="text-xl">🗑</span>
+            <span className="text-[9px] text-white/50">{opp?.graveyardSize ?? 0}</span>
+          </RiftCell>
+          <RiftCell label="Runes" accent="blue" className="flex-1">
+            <InlineRunes runeHand={opp?.runeHand || []} isMe={false} />
+          </RiftCell>
+          <RiftCell label="Runes Deck" accent="blue" className={SM}>
+            <span className="text-xl text-blue-400/70">◆</span>
+            <span className="text-[9px] text-blue-300/60">{opp?.runeDeckSize ?? 0}</span>
+          </RiftCell>
         </div>
       </div>
 
@@ -822,65 +850,64 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {/* ══ Zone moi : 3 lignes ══ */}
       <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5">
 
-        {/* Moi ligne 1 (proche BF) : BF-ref | Champion | Legend */}
+        {/* Moi ligne 1 (proche BF) : spacer | BF-ref | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <div className="flex-1" />
-          <ZoneCell label="BF sélectionné" border="border-gray-700/20" bg="bg-transparent" className={SM}
-            onClick={() => me?.battlefieldCard && setZoom(me.battlefieldCard)}>
+          <RiftCell label="Battlefield" className={SM} onClick={() => me?.battlefieldCard && setZoom(me.battlefieldCard)}>
             {me?.battlefieldCard
               ? <GameCard card={me.battlefieldCard} zone="bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-gray-800">—</span>}
-          </ZoneCell>
-          <ZoneCell label="Champion" border="border-purple-700/40" bg="bg-purple-950/10" className={SM}
+              : <span className="text-[9px] text-white/20">—</span>}
+          </RiftCell>
+          <RiftCell label="Champion" accent="purple" className={SM}
             onClick={() => (me?.champion || [])[0] && setMenu({ card: me.champion[0], zone: "champion", bfIndex: null })}>
             {(me?.champion || []).slice(0, 1).map((c) => (
               <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-[44px]"
                 onTap={onCardTap} onLongPress={onCardLongPress} />
             ))}
-            {!(me?.champion?.length) && <span className="text-sm text-purple-700">⚔</span>}
-          </ZoneCell>
-          <ZoneCell label="Legend" border="border-amber-700/40" bg="bg-amber-950/10" className={SM}
-            onClick={() => me?.legendCard && setZoom(me.legendCard)}>
+            {!(me?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          </RiftCell>
+          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
             {me?.legendCard
               ? <GameCard card={me.legendCard} zone="legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-sm text-amber-700">♛</span>}
-          </ZoneCell>
+              : <span className="text-base text-amber-500/60">♛</span>}
+          </RiftCell>
         </div>
 
         {/* Moi ligne 2 : Main Deck | Base */}
         <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Main Deck" border="border-gray-700/40" className={SM}
-            onClick={() => isMyTurn && send({ type: "DRAW" })}>
-            <span className="text-lg">🂠</span>
-            <span className="text-[9px] text-gray-400">{me?.deckSize ?? 0}</span>
-          </ZoneCell>
-          <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); }}
-            className="flex-1 rounded border border-gray-700/30 bg-black/30 relative">
-            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-              {(me?.field || []).map((c) => (
-                <GameCard key={c.instanceId} card={c} zone="field" isMe size="fill" className="w-[36px] h-full shrink-0"
-                  onTap={onCardTap} onLongPress={onCardLongPress} />
-              ))}
-              {!(me?.field?.length) && <span className="text-[9px] text-gray-700 w-full text-center">Base</span>}
-            </div>
-            <span className="absolute bottom-0.5 left-0 right-0 text-center text-[8px] text-gray-600 leading-none pointer-events-none">Base</span>
+          <RiftCell label="Main Deck" className={SM} onClick={() => isMyTurn && send({ type: "DRAW" })}>
+            <span className="text-xl">🂠</span>
+            <span className="text-[9px] text-white/50">{me?.deckSize ?? 0}</span>
+          </RiftCell>
+          <div onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); }}
+            className="flex-1 relative">
+            <RiftCell label="Base" className="h-full w-full">
+              <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
+                {(me?.field || []).map((c) => (
+                  <GameCard key={c.instanceId} card={c} zone="field" isMe size="fill" className="w-[36px] h-full shrink-0"
+                    onTap={onCardTap} onLongPress={onCardLongPress} />
+                ))}
+                {!(me?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
+              </div>
+            </RiftCell>
           </div>
         </div>
 
         {/* Moi ligne 3 (proche main) : RuneDeck | Runes | Trash */}
         <div className={`flex gap-0.5 ${ROW}`}>
-          <ZoneCell label="Runes Deck" border="border-blue-900/40" bg="bg-blue-950/20" className={SM}>
-            <span className="text-lg text-blue-500">◆</span>
-            <span className="text-[9px] text-blue-400">{me?.runeDeckSize ?? 0}</span>
-          </ZoneCell>
-          <ZoneCell label="Runes" border="border-blue-900/40" bg="bg-blue-950/10" className="flex-1">
+          <RiftCell label="Runes Deck" accent="blue" className={SM}>
+            <span className="text-xl text-blue-400/70">◆</span>
+            <span className="text-[9px] text-blue-300/60">{me?.runeDeckSize ?? 0}</span>
+          </RiftCell>
+          <RiftCell label="Runes" accent="blue" className="flex-1">
             <InlineRunes runeHand={me?.runeHand || []} isMe />
-          </ZoneCell>
-          <ZoneCell label="Trash" border="border-gray-700/40" className={SM}
+          </RiftCell>
+          <RiftCell label="Trash" className={SM}
             onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}>
-            <span className="text-lg">🗑</span>
-            <span className="text-[9px] text-gray-400">{me?.graveyardSize ?? 0}</span>
-          </ZoneCell>
+            <span className="text-xl">🗑</span>
+            <span className="text-[9px] text-white/50">{me?.graveyardSize ?? 0}</span>
+          </RiftCell>
         </div>
       </div>
 
