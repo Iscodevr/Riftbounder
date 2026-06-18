@@ -211,6 +211,24 @@ function CardBack({ className = "", rune = false }) {
   );
 }
 
+// ── Stacked cards zone ────────────────────────────────────────────────────────
+// Cartes empilées en éventail — s'écrasent si trop nombreuses, jamais de scroll
+function StackedCards({ cards, cardW = 36, renderCard }) {
+  const n = cards.length;
+  const overlap = n > 1 ? Math.min(0, -(cardW * n - cardW * 3) / (n - 1)) : 0;
+  return (
+    <div className="flex h-full w-full items-center overflow-hidden p-0.5">
+      {cards.map((c, i) => (
+        <div key={c.instanceId} className="shrink-0 h-full"
+          style={{ width: cardW, marginLeft: i === 0 ? 0 : Math.min(-2, overlap), zIndex: i }}>
+          {renderCard(c, i)}
+        </div>
+      ))}
+      {n === 0 && <span className="text-[9px] text-white/20 w-full text-center">—</span>}
+    </div>
+  );
+}
+
 // ── Game card ─────────────────────────────────────────────────────────────────
 function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size = "md", className = "" }) {
   const pressTimer = useRef(null);
@@ -527,11 +545,10 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
       </div>
 
       {/* Unités adverses */}
-      <div className="relative z-10 flex-1 flex gap-0.5 p-0.5 overflow-x-auto items-center border-b border-gray-800/40 min-h-0">
-        {oppUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="sm" className="shrink-0" />
-        ))}
-        {oppUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center">adv.</span>}
+      <div className="relative z-10 flex-1 border-b border-gray-800/40 min-h-0 overflow-hidden">
+        <StackedCards cards={oppUnits} cardW={32} renderCard={(card) =>
+          <GameCard card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="fill" />
+        } />
         {hasCombat && isMe && (
           <button onClick={() => onResolveCombat(bf.id)}
             className="absolute inset-0 flex items-center justify-center bg-red-950/70 text-[9px] text-red-300 font-bold z-20">
@@ -541,12 +558,10 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
       </div>
 
       {/* Mes unités */}
-      <div className="relative z-10 flex-1 flex gap-0.5 p-0.5 overflow-x-auto items-center min-h-0">
-        {myUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="sm" className="shrink-0"
-            onTap={onCardTap} onLongPress={onCardLongPress} />
-        ))}
-        {myUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center">moi</span>}
+      <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
+        <StackedCards cards={myUnits} cardW={32} renderCard={(card) =>
+          <GameCard card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+        } />
       </div>
     </div>
   );
@@ -734,18 +749,11 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
   // Runes inline (pour les lignes de runes)
   const InlineRunes = ({ runeHand = [], isMe: rIsMe }) => (
-    <div className="flex gap-0.5 h-full w-full p-0.5 overflow-x-auto">
-      {runeHand.map((card) => !rIsMe ? (
-        <div key={card.instanceId} className="relative shrink-0 w-[28px] h-full bg-blue-950/30 flex items-center justify-center">
-          <CardBack className="w-full h-full" rune />
-        </div>
-      ) : (
-        <div key={card.instanceId} className="shrink-0 w-[28px] h-full">
-          <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
-        </div>
-      ))}
-      {runeHand.length === 0 && <span className="text-[9px] text-white/20 self-center w-full text-center">—</span>}
-    </div>
+    <StackedCards cards={runeHand} cardW={28} renderCard={(card) =>
+      rIsMe
+        ? <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+        : <CardBack className="w-full h-full" rune />
+    } />
   );
 
   const ROW = "h-[68px]";
@@ -802,20 +810,14 @@ function Board({ room: initialRoom, mySocketId, code }) {
             <span className="text-[9px] text-white/50 absolute bottom-0.5">{opp?.deckSize ?? 0}</span>
           </RiftCell>
           <RiftCell label="Base" className="flex-1">
-            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-              {(opp?.field || []).map((c) => (
-                <GameCard key={c.instanceId} card={c} zone="opp-field" isMe={false} size="fill" className="w-[36px] h-full shrink-0" />
-              ))}
-              {!(opp?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
-            </div>
+            <StackedCards cards={opp?.field || []} renderCard={(c) =>
+              <GameCard card={c} zone="opp-field" isMe={false} size="fill" />
+            } />
           </RiftCell>
           <RiftCell label="Champion" accent="purple" className="flex-1">
-            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-              {(opp?.champion || []).map((c) => (
-                <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-full shrink-0" />
-              ))}
-              {!(opp?.champion?.length) && <span className="text-[9px] text-white/20 w-full text-center">—</span>}
-            </div>
+            <StackedCards cards={opp?.champion || []} renderCard={(c) =>
+              <GameCard card={c} zone="opp-champion" isMe={false} size="fill" />
+            } />
           </RiftCell>
           <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
             {opp?.legendCard
@@ -873,23 +875,15 @@ function Board({ room: initialRoom, mySocketId, code }) {
             onDrop={(e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); }}
             className="flex-1 relative">
             <RiftCell label="Base" className="h-full w-full">
-              <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-                {(me?.field || []).map((c) => (
-                  <GameCard key={c.instanceId} card={c} zone="field" isMe size="fill" className="w-[36px] h-full shrink-0"
-                    onTap={onCardTap} onLongPress={onCardLongPress} />
-                ))}
-                {!(me?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
-              </div>
+              <StackedCards cards={me?.field || []} renderCard={(c) =>
+                <GameCard card={c} zone="field" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+              } />
             </RiftCell>
           </div>
           <RiftCell label="Champion" accent="purple" className="flex-1">
-            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
-              {(me?.champion || []).map((c) => (
-                <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-full shrink-0"
-                  onTap={onCardTap} onLongPress={onCardLongPress} />
-              ))}
-              {!(me?.champion?.length) && <span className="text-[9px] text-white/20 w-full text-center">—</span>}
-            </div>
+            <StackedCards cards={me?.champion || []} renderCard={(c) =>
+              <GameCard card={c} zone="champion" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+            } />
           </RiftCell>
           <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
             {me?.legendCard
