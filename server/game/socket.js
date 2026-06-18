@@ -11,6 +11,7 @@ function safeRoom(room, viewerSocketId) {
     solo: room.solo,
     turn: room.turn,
     winner: room.winner,
+    log: (room.log || []).slice(-30),
     // Battlefields partagés — visibles par tous avec leurs unités
     battlefields: (room.battlefields || []).map((bf) => ({
       id: bf.id,

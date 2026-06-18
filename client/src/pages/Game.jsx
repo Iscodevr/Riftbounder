@@ -268,10 +268,12 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
   const fromBF = typeof bfIndex === "number";
   const fromRune = zone === "runeHand";
 
+  const zoomAction = { label: "🔍 Voir la carte", action: "__zoom__" };
   let actions = [];
 
   if (fromRune) {
     actions = [
+      zoomAction,
       { label: "Épuiser (→ +1 énergie)", action: { type: "EXHAUST_RUNE", instanceId: card.instanceId } },
       { label: "Recycler (→ +1 énergie domaine)", action: { type: "RECYCLE_RUNE", instanceId: card.instanceId } },
     ];
@@ -280,6 +282,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     const cantAfford = cost > myEnergy;
     const costLabel = cost > 0 ? ` (coût: ${cost}⚡)` : "";
     actions = [
+      zoomAction,
       { label: `→ Base (jouer unité/gear)${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" }, disabled: cantAfford },
       { label: `→ Zone Sort${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "spellZone" }, disabled: cantAfford },
       { label: "Défausser", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
@@ -287,6 +290,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     ];
   } else if (fromChampion) {
     actions = [
+      zoomAction,
       { label: "→ Base (déployer champion)", action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" } },
       ...(battlefields || []).map((bf, i) => ({
         label: `→ Battlefield ${i + 1} (${bf.card?.name || "sans nom"})`,
@@ -295,6 +299,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     ];
   } else if (fromBF) {
     actions = [
+      zoomAction,
       { label: "Épuiser / Désépuiser", action: { type: "EXHAUST", instanceId: card.instanceId } },
       { label: "→ Base (retraite)", action: { type: "MOVE_FROM_BF", instanceId: card.instanceId, bfIndex } },
       { label: "→ Défausse", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
@@ -303,6 +308,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     ];
   } else {
     actions = [
+      zoomAction,
       { label: card.exhausted ? "Désépuiser" : "Épuiser", action: { type: "EXHAUST", instanceId: card.instanceId } },
       ...(battlefields || []).map((bf, i) => ({
         label: `→ Battlefield ${i + 1} (${bf.card?.name || "sans nom"})`,
@@ -334,6 +340,108 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
             className={`w-full text-left px-4 py-2 rounded-xl text-sm transition-colors ${a.disabled ? "text-gray-600 cursor-not-allowed" : "text-white hover:bg-gray-800"}`}>{a.label}{a.disabled ? " — pas assez d'⚡" : ""}</button>
         ))}
         <button onClick={onClose} className="w-full text-center px-4 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-800">Annuler</button>
+      </div>
+    </div>
+  );
+}
+
+// ── GameLog ───────────────────────────────────────────────────────────────────
+function GameLog({ log, myPlayerIndex }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [log]);
+  const last = log[log.length - 1];
+  return (
+    <div className="absolute bottom-20 right-1 z-30 flex flex-col items-end gap-1">
+      {open && (
+        <div ref={ref} className="w-56 max-h-48 overflow-y-auto bg-gray-900/95 border border-gray-700 rounded-xl p-2 space-y-0.5 text-[10px]">
+          {log.map((e) => (
+            <div key={e.id} className={`${e.playerIndex === myPlayerIndex ? "text-yellow-300" : "text-gray-400"}`}>
+              <span className="text-gray-600">T{e.turn} </span>{e.text}
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={() => setOpen(o => !o)}
+        className="bg-gray-800 border border-gray-700 rounded-full px-2 py-0.5 text-[10px] text-gray-400 hover:text-white">
+        📋 {open ? "Fermer" : (last ? last.text.slice(0, 20) + "…" : "Log")}
+      </button>
+    </div>
+  );
+}
+
+// ── CardZoom ──────────────────────────────────────────────────────────────────
+function CardZoom({ card, onClose }) {
+  if (!card) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={onClose}>
+      <div className="max-w-xs w-full mx-4" onClick={e => e.stopPropagation()}>
+        {card.image_large || card.image_small
+          ? <img src={card.image_large || card.image_small} alt={card.name} className="w-full rounded-2xl shadow-2xl" />
+          : <div className="w-full aspect-[2.5/3.5] bg-gray-800 rounded-2xl flex items-center justify-center text-white">{card.name}</div>}
+        {card.description && (
+          <div className="mt-2 bg-gray-900/90 rounded-xl p-3 text-xs text-gray-300 leading-relaxed">{card.description}</div>
+        )}
+        {(card.might || card.energy_cost) && (
+          <div className="mt-1 flex gap-3 justify-center text-xs text-gray-400">
+            {card.energy_cost && <span>⚡ Coût : {card.energy_cost}</span>}
+            {card.might && <span>⚔️ Might : {card.might}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── ZoneViewer ────────────────────────────────────────────────────────────────
+function ZoneViewer({ title, cards, isMe, onAction, onClose, onZoom }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-3 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-bold text-white">{title} ({cards.length})</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">×</button>
+        </div>
+        <div className="flex flex-wrap gap-2 overflow-y-auto flex-1">
+          {cards.map(card => (
+            <div key={card.instanceId} className="relative cursor-pointer" onClick={() => onZoom(card)}>
+              {card.image_small
+                ? <img src={card.image_small} alt={card.name} className="w-16 rounded-lg border border-gray-700 hover:border-yellow-400 transition-colors" />
+                : <div className="w-16 h-22 bg-gray-800 rounded-lg border border-gray-700 flex items-center justify-center text-[8px] text-gray-500 p-1">{card.name}</div>}
+              {isMe && (
+                <button onClick={e => { e.stopPropagation(); onAction({ type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "hand" }); }}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full text-[8px] text-gray-950 font-bold flex items-center justify-center hover:bg-yellow-400">↑</button>
+              )}
+            </div>
+          ))}
+          {cards.length === 0 && <p className="text-gray-600 text-sm w-full text-center py-4">Vide</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TokenPicker ───────────────────────────────────────────────────────────────
+function TokenPicker({ onPick, onClose }) {
+  const api = useApi();
+  const [tokens, setTokens] = useState([]);
+  useEffect(() => { api.get("/cards?type=Token&limit=40").then(d => setTokens(d.cards || [])).catch(console.error); }, []);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-3 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-bold text-white">Créer un token</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">×</button>
+        </div>
+        <div className="flex flex-wrap gap-2 overflow-y-auto flex-1">
+          {tokens.map(t => (
+            <div key={t.id} onClick={() => { onPick(t); onClose(); }} className="cursor-pointer">
+              {t.image_small
+                ? <img src={t.image_small} alt={t.name} className="w-16 rounded-lg border border-gray-700 hover:border-yellow-400 transition-colors" />
+                : <div className="w-16 h-22 bg-gray-800 rounded-lg border border-gray-700 flex items-center justify-center text-[7px] text-gray-500 p-1 text-center">{t.name}</div>}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -477,6 +585,9 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const [room, setRoom] = useState(initialRoom);
   const [menu, setMenu] = useState(null);
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(null);
+  const [zoneViewer, setZoneViewer] = useState(null);
+  const [tokenPicker, setTokenPicker] = useState(false);
 
   useSocket({
     "game:state": ({ room }) => setRoom(room),
@@ -554,6 +665,11 @@ function Board({ room: initialRoom, mySocketId, code }) {
         <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
           className={`rounded px-2 py-0.5 font-semibold text-[10px] transition-colors ml-1 ${isMyTurn ? "bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400" : "bg-gray-800/30 text-gray-600 cursor-not-allowed"}`}>
           ■ Fin de tour
+        </button>
+        <button onClick={() => isMyTurn && setTokenPicker(true)}
+          disabled={!isMyTurn}
+          className="text-gray-400 hover:text-white disabled:opacity-30 px-1 transition-colors text-[10px]">
+          🪙 Token
         </button>
         <div className="w-px h-4 bg-gray-700 mx-1" />
         {/* Score moi */}
@@ -658,9 +774,10 @@ function Board({ room: initialRoom, mySocketId, code }) {
               <RuneRow p={me} isMe onCardTap={onCardTap} onCardLongPress={onCardLongPress} />
             </div>
             {/* Défausse */}
-            <DropZone label="GY" cards={(me?.graveyard || []).slice(-1)}
-              onDrop={handleDrop("graveyard")} onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-              isMe className="w-9 shrink-0 h-full" size="sm" />
+            <button onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}
+              className="w-9 shrink-0 h-full bg-gray-800/30 border border-gray-700/30 rounded text-[8px] text-gray-500 flex flex-col items-center justify-center gap-0.5 hover:border-gray-500 transition-colors">
+              <span>💀</span><span>{me?.graveyardSize ?? 0}</span>
+            </button>
           </div>
 
           {/* Légende (fixe, jamais en jeu) */}
@@ -671,8 +788,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
             )}
             <span className="text-[8px] text-gray-500 italic">{me?.legendCard?.name || "Légende"}</span>
             <div className="flex-1" />
-            <span className="text-[8px] text-gray-600">💀{me?.graveyardSize ?? 0}</span>
-            <span className="text-[8px] text-gray-600 ml-1">🚫{me?.banishmentSize ?? 0}</span>
+            <button onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })} className="text-[8px] text-gray-600 hover:text-gray-400">💀{me?.graveyardSize ?? 0}</button>
+            <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })} className="text-[8px] text-gray-600 hover:text-gray-400 ml-1">🚫{me?.banishmentSize ?? 0}</button>
           </div>
         </div>
       </div>
@@ -687,6 +804,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {(me?.hand?.length ?? 0) === 0 && <span className="text-[10px] text-gray-700 self-center px-2">Main vide</span>}
       </div>
 
+      <GameLog log={room.log || []} myPlayerIndex={myIdx} />
+
       {/* ══ Toast erreur ══ */}
       {error && (
         <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg whitespace-nowrap">
@@ -696,8 +815,16 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
       {menu && (
         <CardMenu card={menu.card} zone={menu.zone} bfIndex={menu.bfIndex}
-          battlefields={bfs} onAction={send} onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0} />
+          battlefields={bfs} onAction={(a) => { if (a === "__zoom__") { setZoom(menu.card); return; } send(a); }} onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0} />
       )}
+      {zoom && <CardZoom card={zoom} onClose={() => setZoom(null)} />}
+      {zoneViewer && (
+        <ZoneViewer title={zoneViewer.title} cards={zoneViewer.cards} isMe={zoneViewer.isMe}
+          onAction={(a) => { send(a); setZoneViewer(null); }}
+          onClose={() => setZoneViewer(null)}
+          onZoom={(card) => { setZoom(card); }} />
+      )}
+      {tokenPicker && <TokenPicker onClose={() => setTokenPicker(false)} onPick={(card) => send({ type: "CREATE_TOKEN", card })} />}
     </div>
   );
 }

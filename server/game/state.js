@@ -2,6 +2,11 @@ const { randomUUID } = require("crypto");
 
 const rooms = new Map();
 
+function addLog(room, playerIndex, text) {
+  room.log.push({ turn: room.turn || 0, playerIndex, text, id: Date.now() + Math.random() });
+  if (room.log.length > 60) room.log.shift();
+}
+
 function makeCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code;
@@ -89,7 +94,7 @@ function createRoom(hostSocketId, hostUserId, solo = false) {
     bot.mulliganDone = true;
     players.push(bot);
   }
-  const room = { code, phase: "deck_select", solo, players, turn: 0, battlefields: [], activePlayer: null };
+  const room = { code, phase: "deck_select", solo, players, turn: 0, battlefields: [], activePlayer: null, log: [] };
   rooms.set(code, room);
   return room;
 }
@@ -242,6 +247,17 @@ function applyAction(code, socketId, action) {
       p.energy = 0;
       room.turn = (room.turn || 0) + 1;
       room.activePlayer = p.playerIndex; // Action phase begins for this player
+      addLog(room, p.playerIndex, "commence son tour");
+      // Hold scoring logs
+      for (const bf of room.battlefields) {
+        if (bf.conquered && bf.controller === p.playerIndex) {
+          addLog(room, p.playerIndex, `marque 1 pt (Hold BF ${bf.id + 1})`);
+        }
+      }
+      // Burn Out log (deck was empty — opp scored)
+      if (p.deck.length === 0 && opp) {
+        addLog(room, opp.playerIndex, "marque 1 pt (Burn Out !)");
+      }
       break;
     }
 
@@ -252,6 +268,7 @@ function applyAction(code, socketId, action) {
       }
       p.energy = 0;
       room.activePlayer = opp ? opp.playerIndex : null; // Pass to opponent
+      addLog(room, p.playerIndex, "passe la main");
       break;
     }
 
@@ -282,6 +299,7 @@ function applyAction(code, socketId, action) {
       if (p.runeHand[idx].exhausted) return { error: "Rune déjà épuisée" };
       p.runeHand[idx].exhausted = true;
       p.energy = (p.energy || 0) + 1;
+      addLog(room, p.playerIndex, "épuise une rune → +1 énergie");
       break;
     }
 
@@ -314,6 +332,7 @@ function applyAction(code, socketId, action) {
       card.exhausted = false;
       const validZones = ["field", "spellZone"];
       p[validZones.includes(action.zone) ? action.zone : "field"].push(card);
+      addLog(room, p.playerIndex, `joue ${card.name}`);
       break;
     }
 
@@ -329,6 +348,7 @@ function applyAction(code, socketId, action) {
       if (!bf) return { error: "Battlefield introuvable" };
       if (!bf.units[p.playerIndex]) bf.units[p.playerIndex] = [];
       bf.units[p.playerIndex].push(card);
+      addLog(room, p.playerIndex, `envoie ${card.name} au Battlefield ${(action.bfIndex ?? 0) + 1}`);
       break;
     }
 
@@ -369,10 +389,14 @@ function applyAction(code, socketId, action) {
       const mySurvives = (bf.units[p.playerIndex] || []).length > 0;
       const oppSurvives = (bf.units[opp.playerIndex] || []).length > 0;
 
+      addLog(room, p.playerIndex, `résout le combat au Battlefield ${(action.bfIndex ?? 0) + 1}`);
+      const bfIdx = action.bfIndex ?? 0;
       if (mySurvives && !oppSurvives && bf.controller !== p.playerIndex) {
         bf.controller = p.playerIndex; bf.conquered = true; p.score++; checkWin(room);
+        addLog(room, p.playerIndex, `conquiert le Battlefield ${bfIdx + 1} ! (+1 pt)`);
       } else if (oppSurvives && !mySurvives && bf.controller !== opp.playerIndex) {
         bf.controller = opp.playerIndex; bf.conquered = true; opp.score++; checkWin(room);
+        addLog(room, opp.playerIndex, `conquiert le Battlefield ${bfIdx + 1} ! (+1 pt)`);
       }
       break;
     }
@@ -432,6 +456,13 @@ function applyAction(code, socketId, action) {
       const found = findInZones(p, action.instanceId);
       if (!found) return { error: "Carte introuvable" };
       p.banishment.push(removeFromZone(p, found.zone, found.idx));
+      break;
+    }
+
+    case "CREATE_TOKEN": {
+      const token = { ...action.card, instanceId: randomUUID(), exhausted: false, counters: 0, hidden: false };
+      p.field.push(token);
+      addLog(room, p.playerIndex, `crée un token ${token.name}`);
       break;
     }
 
