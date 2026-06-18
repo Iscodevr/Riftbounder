@@ -332,14 +332,26 @@ function applyAction(code, socketId, action) {
       else if (cIdx !== -1) card = p.champion[cIdx];
       else return { error: "Carte non trouvée" };
       const cost = Number(card.energy_cost) || 0;
-      if (p.energy < cost) return { error: `Pas assez d'énergie (${cost} requis, tu as ${p.energy})` };
+      // Auto-épuiser les runes disponibles pour payer le coût
+      let toPay = cost - (p.energy || 0);
+      if (toPay > 0) {
+        const available = p.runeHand.filter((r) => !r.exhausted);
+        if (available.length < toPay) return { error: `Pas assez de runes disponibles (${cost} requis, ${p.energy || 0} énergie + ${available.length} rune(s) dispo)` };
+        let paid = 0;
+        for (const rune of p.runeHand) {
+          if (!rune.exhausted && paid < toPay) { rune.exhausted = true; paid++; }
+        }
+        p.energy = (p.energy || 0) + paid;
+      }
       p.energy -= cost;
       if (hIdx !== -1) p.hand.splice(hIdx, 1)[0];
       else p.champion.splice(cIdx, 1)[0];
       card.exhausted = false;
-      const validZones = ["field", "spellZone"];
-      p[validZones.includes(action.zone) ? action.zone : "field"].push(card);
-      addLog(room, p.playerIndex, `joue ${card.name}`);
+      // Sorts → défausse immédiatement ; Gear/Unité → Base
+      const isSpell = /spell|sort/i.test(card.card_type || "");
+      const dest = isSpell ? "graveyard" : "field";
+      p[dest].push(card);
+      addLog(room, p.playerIndex, `joue ${card.name}${isSpell ? " (sort)" : ""}`);
       break;
     }
 

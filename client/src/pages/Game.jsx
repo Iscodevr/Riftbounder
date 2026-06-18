@@ -301,7 +301,7 @@ function DropZone({ label, cards = [], onDrop, onCardTap, onCardLongPress, isMe,
 }
 
 // ── Card menu ─────────────────────────────────────────────────────────────────
-function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEnergy = 0 }) {
+function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEnergy = 0, myRuneCount = 0 }) {
   const fromHand = zone === "hand";
   const fromChampion = zone === "champion";
   const fromBF = typeof bfIndex === "number";
@@ -318,12 +318,13 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     ];
   } else if (fromHand) {
     const cost = Number(card.energy_cost) || 0;
-    const cantAfford = cost > myEnergy;
-    const costLabel = cost > 0 ? ` (coût: ${cost}⚡)` : "";
+    const availableRunes = myRuneCount;
+    const totalPayable = myEnergy + availableRunes;
+    const cantAfford = cost > totalPayable;
+    const costLabel = cost > 0 ? ` — ${cost} rune(s)` : " — gratuit";
     actions = [
       zoomAction,
-      { label: `→ Base (jouer unité/gear)${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" }, disabled: cantAfford },
-      { label: `→ Zone Sort${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "spellZone" }, disabled: cantAfford },
+      { label: `Jouer${costLabel}`, action: { type: "PLAY_TO_ZONE", instanceId: card.instanceId, zone: "field" }, disabled: cantAfford },
       { label: "Défausser", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
       { label: "Bannir", action: { type: "BANISH", instanceId: card.instanceId } },
     ];
@@ -657,6 +658,13 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const isMyTurn = room.activePlayer === myIdx;
   const send = useCallback((action) => getSocket().emit("game:action", { code, action }), [code]);
 
+  // START_TURN automatique dès que c'est notre tour
+  useEffect(() => {
+    if (isMyTurn && me && !me.turnStarted) {
+      send({ type: "START_TURN" });
+    }
+  }, [isMyTurn, me?.turnStarted]);
+
   if (room.phase === "ended") return <EndScreen room={room} mySocketId={mySocketId} />;
 
   const onCardTap = (card, zone, bfIndex) => {
@@ -687,7 +695,6 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const handleResolveCombat = (bfId) => send({ type: "RESOLVE_COMBAT", bfIndex: bfId });
 
   const bfs = room.battlefields || [];
-  const canStartTurn = isMyTurn && !me?.turnStarted;
 
   // Helper: une ligne de runes (6 slots)
   const RuneSlots = ({ runeHand = [], runeDeckSize = 0, isMe: rIsMe, gy = null, gySize = 0, onGy }) => (
@@ -793,10 +800,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
       </div>
 
       {/* ══ Indicateur de tour ══ */}
-      <div className={`shrink-0 text-center text-xs font-bold py-1 ${isMyTurn ? "bg-green-600/80 text-green-100" : "bg-gray-800/80 text-gray-500"}`}>
-        {isMyTurn
-          ? (me?.turnStarted ? "✅ TON TOUR — joue !" : "▶ TON TOUR — clique Début")
-          : "⏳ Tour adversaire"}
+      <div className={`shrink-0 text-center text-xs font-bold py-0.5 ${isMyTurn ? "bg-green-700/60 text-green-200" : "bg-gray-800/60 text-gray-500"}`}>
+        {isMyTurn ? "✅ TON TOUR" : "⏳ Tour adversaire"}
       </div>
 
       {/* ══ Zone adversaire — rotate 180° (vue depuis l'adversaire) ══ */}
@@ -924,10 +929,6 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
       {/* ══ Barre d'actions ══ */}
       <div className="shrink-0 flex items-center gap-2 px-3 bg-gray-900 border-t border-gray-800 h-[44px]">
-        <button onClick={() => send({ type: "START_TURN" })} disabled={!canStartTurn}
-          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${canStartTurn ? "bg-green-700/40 text-green-300 hover:bg-green-700/70" : "text-gray-700 cursor-not-allowed"}`}>
-          ▶ Début
-        </button>
         <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
           className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${isMyTurn ? "bg-yellow-700/40 text-yellow-300 hover:bg-yellow-700/70" : "text-gray-700 cursor-not-allowed"}`}>
           ■ Fin
@@ -982,7 +983,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {menu && (
         <CardMenu card={menu.card} zone={menu.zone} bfIndex={menu.bfIndex}
           battlefields={bfs} onAction={(a) => { if (a === "__zoom__") { setZoom(menu.card); return; } send(a); }}
-          onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0} />
+          onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0}
+          myRuneCount={(me?.runeHand || []).filter(r => !r.exhausted).length} />
       )}
       {zoom && <CardZoom card={zoom} onClose={() => setZoom(null)} />}
       {zoneViewer && (
