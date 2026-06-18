@@ -57,9 +57,28 @@ function DeckSelect({ code, room, mySocketId, onState }) {
   const me = room.players.find((p) => p.socketId === mySocketId);
   const opp = room.players.find((p) => p.socketId !== mySocketId);
   const confirm = () => { if (!selected) return; setSent(true); getSocket().emit("game:set_deck", { code, deckId: selected }); };
+  const [copied, setCopied] = useState(false);
+  const copyCode = () => {
+    navigator.clipboard?.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center p-6 gap-5">
       <h2 className="text-xl font-bold text-white">Choisis ton deck</h2>
+
+      {/* Code à partager — proéminent si l'adversaire n'a pas encore rejoint */}
+      {!opp && (
+        <div className="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-2xl p-4 flex flex-col items-center gap-2">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Code de la partie</p>
+          <p className="text-5xl font-black tracking-[0.25em] text-yellow-400 font-mono">{code}</p>
+          <button onClick={copyCode}
+            className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-lg border border-gray-700 hover:border-gray-500">
+            {copied ? "✓ Copié !" : "Copier le code"}
+          </button>
+          <p className="text-xs text-gray-600">En attente de l'adversaire…</p>
+        </div>
+      )}
+
       <div className="flex gap-3 text-sm">
         <div className={`px-4 py-2 rounded-lg ${me?.ready ? "bg-green-800 text-green-200" : "bg-gray-800 text-gray-300"}`}>Toi {me?.ready ? "✓" : "…"}</div>
         <div className={`px-4 py-2 rounded-lg ${opp?.ready ? "bg-green-800 text-green-200" : "bg-gray-800 text-gray-400"}`}>Adversaire {opp ? (opp.ready ? "✓" : "…") : "en attente…"}</div>
