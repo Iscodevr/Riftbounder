@@ -527,11 +527,11 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
       </div>
 
       {/* Unités adverses */}
-      <div className="relative z-10 flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden border-b border-gray-800/40 min-h-0">
+      <div className="relative z-10 flex-1 flex gap-0.5 p-0.5 overflow-x-auto items-center border-b border-gray-800/40 min-h-0">
         {oppUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="sm" />
+          <GameCard key={card.instanceId} card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="sm" className="shrink-0" />
         ))}
-        {oppUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center self-center">adv.</span>}
+        {oppUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center">adv.</span>}
         {hasCombat && isMe && (
           <button onClick={() => onResolveCombat(bf.id)}
             className="absolute inset-0 flex items-center justify-center bg-red-950/70 text-[9px] text-red-300 font-bold z-20">
@@ -541,12 +541,12 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
       </div>
 
       {/* Mes unités */}
-      <div className="relative z-10 flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden min-h-0">
+      <div className="relative z-10 flex-1 flex gap-0.5 p-0.5 overflow-x-auto items-center min-h-0">
         {myUnits.map((card) => (
-          <GameCard key={card.instanceId} card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="sm"
+          <GameCard key={card.instanceId} card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="sm" className="shrink-0"
             onTap={onCardTap} onLongPress={onCardLongPress} />
         ))}
-        {myUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center self-center">moi</span>}
+        {myUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center">moi</span>}
       </div>
     </div>
   );
@@ -734,30 +734,17 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
   // Runes inline (pour les lignes de runes)
   const InlineRunes = ({ runeHand = [], isMe: rIsMe }) => (
-    <div className="flex gap-0.5 h-full w-full p-0.5">
-      {Array.from({ length: 6 }).map((_, i) => {
-        const card = runeHand[i];
-        if (!card) return (
-          <div key={i} className="relative flex-1 h-full bg-black/40">
-            <div className="absolute inset-0 border border-white/15" />
-            <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-white/30" />
-            <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-white/30" />
-            <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-white/30" />
-            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-white/30" />
-          </div>
-        );
-        if (!rIsMe) return (
-          <div key={card.instanceId} className="relative flex-1 h-full bg-blue-950/30 flex items-center justify-center">
-            <div className="absolute inset-0 border border-blue-400/30" />
-            <span className="text-[9px] text-blue-400/60 relative z-10">◆</span>
-          </div>
-        );
-        return (
-          <div key={card.instanceId} className="flex-1 h-full min-w-0 relative">
-            <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
-          </div>
-        );
-      })}
+    <div className="flex gap-0.5 h-full w-full p-0.5 overflow-x-auto">
+      {runeHand.map((card) => !rIsMe ? (
+        <div key={card.instanceId} className="relative shrink-0 w-[28px] h-full bg-blue-950/30 flex items-center justify-center">
+          <CardBack className="w-full h-full" rune />
+        </div>
+      ) : (
+        <div key={card.instanceId} className="shrink-0 w-[28px] h-full">
+          <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+        </div>
+      ))}
+      {runeHand.length === 0 && <span className="text-[9px] text-white/20 self-center w-full text-center">—</span>}
     </div>
   );
 
@@ -822,11 +809,13 @@ function Board({ room: initialRoom, mySocketId, code }) {
               {!(opp?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
             </div>
           </RiftCell>
-          <RiftCell label="Champion" accent="purple" className={SM}>
-            {(opp?.champion || []).slice(0, 1).map((c) => (
-              <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-[50px]" />
-            ))}
-            {!(opp?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          <RiftCell label="Champion" accent="purple" className="flex-1">
+            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
+              {(opp?.champion || []).map((c) => (
+                <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-full shrink-0" />
+              ))}
+              {!(opp?.champion?.length) && <span className="text-[9px] text-white/20 w-full text-center">—</span>}
+            </div>
           </RiftCell>
           <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
             {opp?.legendCard
@@ -893,13 +882,14 @@ function Board({ room: initialRoom, mySocketId, code }) {
               </div>
             </RiftCell>
           </div>
-          <RiftCell label="Champion" accent="purple" className={SM}
-            onClick={() => (me?.champion || [])[0] && setMenu({ card: me.champion[0], zone: "champion", bfIndex: null })}>
-            {(me?.champion || []).slice(0, 1).map((c) => (
-              <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-[50px]"
-                onTap={onCardTap} onLongPress={onCardLongPress} />
-            ))}
-            {!(me?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          <RiftCell label="Champion" accent="purple" className="flex-1">
+            <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
+              {(me?.champion || []).map((c) => (
+                <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-full shrink-0"
+                  onTap={onCardTap} onLongPress={onCardLongPress} />
+              ))}
+              {!(me?.champion?.length) && <span className="text-[9px] text-white/20 w-full text-center">—</span>}
+            </div>
           </RiftCell>
           <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
             {me?.legendCard
