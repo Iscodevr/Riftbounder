@@ -199,6 +199,18 @@ function Mulligan({ code, room, mySocketId, onState }) {
   );
 }
 
+// ── Card back ─────────────────────────────────────────────────────────────────
+function CardBack({ className = "", rune = false }) {
+  return (
+    <div className={`relative overflow-hidden rounded bg-[#1a1040] border border-purple-900/60 flex items-center justify-center ${className}`}
+      style={{ background: "linear-gradient(135deg, #1a1040 0%, #0d0820 50%, #1a1040 100%)" }}>
+      <div className="absolute inset-[3px] rounded border border-purple-800/30" />
+      <div className="absolute inset-[5px] rounded border border-purple-700/20" />
+      <span className={`text-purple-400/70 ${rune ? "text-lg" : "text-2xl"}`}>{rune ? "◆" : "❖"}</span>
+    </div>
+  );
+}
+
 // ── Game card ─────────────────────────────────────────────────────────────────
 function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size = "md", className = "" }) {
   const pressTimer = useRef(null);
@@ -226,7 +238,7 @@ function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size =
       style={card.exhausted ? { transform: "rotate(90deg)" } : undefined}
     >
       {faceDown ? (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600 text-sm rounded">🂠</div>
+        <CardBack className="w-full h-full" />
       ) : card.image_small ? (
         <img src={card.image_small} alt={card.name} className="max-w-full max-h-full object-contain rounded" draggable={false} />
       ) : (
@@ -799,8 +811,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {/* DOM row 1 → visuel bas après rotation : Main Deck | Base | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Main Deck" className={SM}>
-            <span className="text-xl">🂠</span>
-            <span className="text-[9px] text-white/50">{opp?.deckSize ?? 0}</span>
+            <CardBack className="w-[34px] h-[44px]" />
+            <span className="text-[9px] text-white/50 absolute bottom-0.5">{opp?.deckSize ?? 0}</span>
           </RiftCell>
           <RiftCell label="Base" className="flex-1">
             <div className="flex gap-0.5 overflow-x-auto h-full w-full p-0.5 items-center">
@@ -827,15 +839,17 @@ function Board({ room: initialRoom, mySocketId, code }) {
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Trash" className={SM}
             onClick={() => setZoneViewer({ title: "Défausse adv.", cards: opp?.graveyard || [], isMe: false })}>
-            <span className="text-xl">🗑</span>
-            <span className="text-[9px] text-white/50">{opp?.graveyardSize ?? 0}</span>
+            {(opp?.graveyard?.length > 0)
+              ? <GameCard card={opp.graveyard[opp.graveyard.length - 1]} zone="opp-gy" isMe={false} size="fill" className="w-[34px] h-[44px]" />
+              : <span className="text-[9px] text-white/20">0</span>}
+            <span className="text-[9px] text-white/50 absolute bottom-0.5">{opp?.graveyardSize ?? 0}</span>
           </RiftCell>
           <RiftCell label="Runes" accent="blue" className="flex-1">
             <InlineRunes runeHand={opp?.runeHand || []} isMe={false} />
           </RiftCell>
           <RiftCell label="Runes Deck" accent="blue" className={SM}>
-            <span className="text-xl text-blue-400/70">◆</span>
-            <span className="text-[9px] text-blue-300/60">{opp?.runeDeckSize ?? 0}</span>
+            <CardBack className="w-[34px] h-[44px]" rune />
+            <span className="text-[9px] text-blue-300/60 absolute bottom-0.5">{opp?.runeDeckSize ?? 0}</span>
           </RiftCell>
         </div>
       </div>
@@ -863,8 +877,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {/* Moi ligne 1 (proche BF) : Main Deck | Base | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Main Deck" className={SM} onClick={() => isMyTurn && send({ type: "DRAW" })}>
-            <span className="text-xl">🂠</span>
-            <span className="text-[9px] text-white/50">{me?.deckSize ?? 0}</span>
+            <CardBack className="w-[34px] h-[44px]" />
+            <span className="text-[9px] text-white/50 absolute bottom-0.5">{me?.deckSize ?? 0}</span>
           </RiftCell>
           <div onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); }}
@@ -897,16 +911,18 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {/* Moi ligne 3 (proche main) : RuneDeck | Runes | Trash */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Runes Deck" accent="blue" className={SM}>
-            <span className="text-xl text-blue-400/70">◆</span>
-            <span className="text-[9px] text-blue-300/60">{me?.runeDeckSize ?? 0}</span>
+            <CardBack className="w-[34px] h-[44px]" rune />
+            <span className="text-[9px] text-blue-300/60 absolute bottom-0.5">{me?.runeDeckSize ?? 0}</span>
           </RiftCell>
           <RiftCell label="Runes" accent="blue" className="flex-1">
             <InlineRunes runeHand={me?.runeHand || []} isMe />
           </RiftCell>
           <RiftCell label="Trash" className={SM}
             onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}>
-            <span className="text-xl">🗑</span>
-            <span className="text-[9px] text-white/50">{me?.graveyardSize ?? 0}</span>
+            {(me?.graveyard?.length > 0)
+              ? <GameCard card={me.graveyard[me.graveyard.length - 1]} zone="gy" isMe={false} size="fill" className="w-[34px] h-[44px]" />
+              : <span className="text-[9px] text-white/20">0</span>}
+            <span className="text-[9px] text-white/50 absolute bottom-0.5">{me?.graveyardSize ?? 0}</span>
           </RiftCell>
         </div>
       </div>
