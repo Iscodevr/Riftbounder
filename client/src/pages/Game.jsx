@@ -1001,6 +1001,7 @@ export default function Game() {
   const [phase, setPhase] = useState("lobby");
   const [code, setCode] = useState(null);
   const [room, setRoom] = useState(null);
+  const [mySocketId, setMySocketId] = useState(null);
 
   useEffect(() => {
     if (!user) navigate("/login");
@@ -1008,11 +1009,18 @@ export default function Game() {
 
   if (!user) return null;
 
-  const mySocketId = getSocket().id;
+  const onJoined = (c, r) => {
+    const sid = getSocket().id;
+    setMySocketId(sid);
+    setCode(c);
+    setRoom(r);
+    setPhase(r.phase);
+  };
 
   const onState = (newRoom) => { setRoom(newRoom); setPhase(newRoom.phase); };
 
-  if (phase === "lobby") return <Lobby onJoined={(c, r) => { setCode(c); setRoom(r); setPhase(r.phase); }} />;
+  if (phase === "lobby") return <Lobby onJoined={onJoined} />;
+  if (!mySocketId || !room) return null;
   if (phase === "deck_select") return <DeckSelect code={code} room={room} mySocketId={mySocketId} onState={onState} />;
   if (phase === "battlefield_select") return <BattlefieldSelect code={code} room={room} mySocketId={mySocketId} onState={onState} />;
   if (phase === "mulligan") return <Mulligan code={code} room={room} mySocketId={mySocketId} onState={onState} />;
