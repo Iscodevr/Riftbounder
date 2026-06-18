@@ -45,6 +45,7 @@ function makePlayerState(userId, socketId) {
     playerIndex: 0,
     score: 0,
     energy: 0,        // Pool d'énergie (vidé en fin de tour)
+    turnStarted: false,
   };
 }
 
@@ -173,8 +174,7 @@ function selectBattlefield(code, socketId, instanceId) {
     for (const pl of room.players) {
       if (pl.userId === "bot") continue;
       pl.hand = pl.deck.splice(0, 4);
-      // P1 commence avec 2 runes, P2 avec 3
-      pl.runeHand = pl.runeDeck.splice(0, pl.playerIndex === 0 ? 2 : 3);
+      // Runes distribuées au premier START_TURN, pas au mulligan
     }
   }
   return { room };
@@ -215,10 +215,13 @@ function applyAction(code, socketId, action) {
 
     // ── ABCD : Début de tour ──────────────────────────────────────────────────
     case "START_TURN": {
-      // Only callable if activePlayer === null OR it's opponent's turn (your turn starts)
-      if (room.activePlayer !== null && room.activePlayer !== (opp?.playerIndex ?? 1 - p.playerIndex)) {
-        return { error: "Ce n'est pas ton tour de commencer" };
+      if (room.activePlayer !== p.playerIndex) {
+        return { error: "Ce n'est pas ton tour" };
       }
+      if (p.turnStarted) {
+        return { error: "Tour déjà commencé" };
+      }
+      p.turnStarted = true;
       // A — Awaken : désépuiser toutes ses cartes
       for (const zone of ["champion", "field", "spellZone", "runeHand"]) {
         p[zone].forEach((c) => { c.exhausted = false; });
@@ -233,21 +236,23 @@ function applyAction(code, socketId, action) {
           if (checkWin(room)) break;
         }
       }
-      // C — Channel : piocher 2 runes
-      p.runeHand.push(...p.runeDeck.splice(0, 2));
-      // D — Draw : piocher 1 carte
-      if (p.deck.length > 0) {
-        p.hand.push(p.deck.shift());
-      } else if (opp) {
-        // Burn Out : l'adversaire marque 1 point
-        opp.score++;
-        checkWin(room);
+      // C — Channel : runes initiales au T1 (P0=2, P1=3), sinon piocher 1 rune
+      if (room.turn === 1) {
+        p.runeHand.push(...p.runeDeck.splice(0, p.playerIndex === 0 ? 2 : 3));
+      } else {
+        p.runeHand.push(...p.runeDeck.splice(0, 1));
       }
-      // Vider le pool d'énergie de l'ancien tour
+      // D — Draw : piocher 1 carte (sauf T1 P0 qui ne pioche pas)
+      if (!(room.turn === 1 && p.playerIndex === 0)) {
+        if (p.deck.length > 0) {
+          p.hand.push(p.deck.shift());
+        } else if (opp) {
+          opp.score++;
+          checkWin(room);
+        }
+      }
       p.energy = 0;
-      room.turn = (room.turn || 0) + 1;
-      room.activePlayer = p.playerIndex; // Action phase begins for this player
-      addLog(room, p.playerIndex, "commence son tour");
+      addLog(room, p.playerIndex, `commence son tour (T${room.turn})`);
       // Hold scoring logs
       for (const bf of room.battlefields) {
         if (bf.conquered && bf.controller === p.playerIndex) {
@@ -263,11 +268,13 @@ function applyAction(code, socketId, action) {
 
     // ── Fin de tour : vider le pool d'énergie ────────────────────────────────
     case "FIN_TOUR": {
-      if (room.activePlayer !== null && p.playerIndex !== room.activePlayer) {
+      if (p.playerIndex !== room.activePlayer) {
         return { error: "Ce n'est pas ton tour" };
       }
       p.energy = 0;
-      room.activePlayer = opp ? opp.playerIndex : null; // Pass to opponent
+      p.turnStarted = false;
+      room.turn = (room.turn || 1) + 1;
+      room.activePlayer = opp ? opp.playerIndex : null;
       addLog(room, p.playerIndex, "passe la main");
       break;
     }

@@ -33,6 +33,7 @@ function safeRoom(room, viewerSocketId) {
       mulliganDone: p.mulliganDone,
       score: p.score,
       energy: p.energy,
+      turnStarted: p.turnStarted,
       deckSize: p.deck.length,
       runeDeckSize: p.runeDeck.length,
       graveyardSize: p.graveyard.length,

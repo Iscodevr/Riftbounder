@@ -120,14 +120,14 @@ function BattlefieldSelect({ code, room, mySocketId, onState }) {
       {!sent ? (
         <>
           {bfs.length > 0 && (
-            <div className="flex gap-3 flex-wrap justify-center max-w-lg">
+            <div className="w-full max-w-sm space-y-3">
               {bfs.map((c) => (
                 <div key={c.instanceId} onClick={() => select(c.instanceId)}
-                  className="cursor-pointer border-2 border-gray-700 hover:border-yellow-400 rounded-xl overflow-hidden transition-all w-32">
+                  className="cursor-pointer border-2 border-gray-700 hover:border-yellow-400 rounded-2xl overflow-hidden transition-all active:scale-95">
                   {c.image_small
-                    ? <img src={c.image_small} alt={c.name} className="w-full aspect-[3.5/2.5] object-cover" />
-                    : <div className="w-full aspect-[3.5/2.5] bg-gray-800 flex items-center justify-center text-xs text-gray-500 p-1">{c.name}</div>}
-                  <p className="text-xs text-center text-gray-300 p-1 truncate">{c.name}</p>
+                    ? <img src={c.image_small} alt={c.name} className="w-full aspect-[16/9] object-cover" />
+                    : <div className="w-full aspect-[16/9] bg-gray-800 flex items-center justify-center text-sm text-gray-400 p-2">{c.name}</div>}
+                  <p className="text-sm font-semibold text-center text-gray-200 py-2 px-3">{c.name}</p>
                 </div>
               ))}
             </div>
@@ -175,30 +175,19 @@ function Mulligan({ code, room, mySocketId, onState }) {
       </div>
       {!sent ? (
         <>
-          <div className="flex gap-2 flex-wrap justify-center max-w-2xl">
+          <div className="flex gap-3 flex-wrap justify-center w-full max-w-sm">
             {hand.map((card) => {
               const marked = toReturn.has(card.instanceId);
               return (
                 <div key={card.instanceId} onClick={() => toggle(card.instanceId)}
-                  className={`cursor-pointer border-2 rounded-xl overflow-hidden transition-all w-20 sm:w-24 ${marked ? "border-red-500 opacity-60" : "border-gray-700 hover:border-yellow-400"}`}>
+                  className={`cursor-pointer border-2 rounded-2xl overflow-hidden transition-all active:scale-95 w-[calc(50%-6px)] ${marked ? "border-red-500 opacity-60" : "border-gray-700 hover:border-yellow-400"}`}>
                   {card.image_small
-                    ? <img src={card.image_small} alt={card.name} className="w-full aspect-[2.5/3.5] object-cover" draggable={false} />
-                    : <div className="w-full aspect-[2.5/3.5] bg-gray-800 flex items-center justify-center text-xs text-gray-500 p-1">{card.name}</div>}
-                  <p className="text-[10px] text-center px-1 pb-1 text-gray-400">{marked ? "✗ Retourner" : "✓ Garder"}</p>
+                    ? <img src={card.image_small} alt={card.name} className="w-full aspect-[2.5/3.5] object-contain bg-gray-900" draggable={false} />
+                    : <div className="w-full aspect-[2.5/3.5] bg-gray-800 flex items-center justify-center text-sm text-gray-400 p-2">{card.name}</div>}
+                  <p className={`text-xs text-center py-1.5 font-semibold ${marked ? "text-red-400" : "text-gray-300"}`}>{marked ? "✗ Retourner" : "✓ Garder"}</p>
                 </div>
               );
             })}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>Runes de départ :</span>
-            <div className="flex gap-1">
-              {runeHand.map((c) => (
-                <div key={c.instanceId} className="w-8 h-11 rounded overflow-hidden border border-gray-700">
-                  {c.image_small ? <img src={c.image_small} alt={c.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-800" />}
-                </div>
-              ))}
-            </div>
-            <span className="text-yellow-400">({runeHand.length})</span>
           </div>
           <button onClick={confirm} className="btn-primary px-8">
             {toReturn.size === 0 ? "Garder ma main" : `Retourner ${toReturn.size} carte${toReturn.size > 1 ? "s" : ""}`}
@@ -509,11 +498,14 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
       className={`flex-1 rounded-lg border-2 transition-colors flex flex-col h-full
         ${over ? "border-yellow-400 bg-yellow-400/5" : controlColor} bg-black/30`}>
 
-      {/* Header fixe */}
-      <div className="shrink-0 flex items-center gap-1 px-1 py-0.5 bg-black/50">
-        <span className="text-[9px] text-gray-400 flex-1 truncate">{bf.card?.name || `BF ${bf.id + 1}`}</span>
+      {/* Header fixe avec image BF centrée */}
+      <div className="shrink-0 relative flex items-center justify-center px-1 py-0.5 bg-black/50 overflow-hidden h-[28px]">
+        {bf.card?.image_small && (
+          <img src={bf.card.image_small} alt={bf.card.name} className="absolute inset-0 w-full h-full object-cover opacity-30" />
+        )}
+        <span className="relative text-[9px] text-gray-200 font-semibold truncate z-10">{bf.card?.name || `BF ${bf.id + 1}`}</span>
         {bf.conquered && (
-          <span className={`text-[8px] font-bold ${controller === myPlayerIndex ? "text-green-400" : "text-red-400"}`}>
+          <span className={`relative z-10 ml-1 text-[8px] font-bold ${controller === myPlayerIndex ? "text-green-400" : "text-red-400"}`}>
             {controller === myPlayerIndex ? "✓" : "✗"}
           </span>
         )}
@@ -666,7 +658,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const handleResolveCombat = (bfId) => send({ type: "RESOLVE_COMBAT", bfIndex: bfId });
 
   const bfs = room.battlefields || [];
-  const canStartTurn = room.activePlayer === null || room.activePlayer === opp?.playerIndex;
+  const canStartTurn = isMyTurn && !me?.turnStarted;
 
   // Helper: une ligne de runes (6 slots)
   const RuneSlots = ({ runeHand = [], runeDeckSize = 0, isMe: rIsMe, gy = null, gySize = 0, onGy }) => (
@@ -755,7 +747,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
     </div>
   );
 
-  const ROW = "h-[54px]";
+  const ROW = "h-[68px]";
   const SM = "w-[52px] shrink-0";
 
   return (
@@ -791,32 +783,18 @@ function Board({ room: initialRoom, mySocketId, code }) {
         {!(opp?.hand?.length) && <span className="text-xs text-gray-700 px-2">— main adv. —</span>}
       </div>
 
+      {/* ══ Indicateur de tour ══ */}
+      <div className={`shrink-0 text-center text-xs font-bold py-1 ${isMyTurn ? "bg-green-600/80 text-green-100" : "bg-gray-800/80 text-gray-500"}`}>
+        {isMyTurn
+          ? (me?.turnStarted ? "✅ TON TOUR — joue !" : "▶ TON TOUR — clique Début")
+          : "⏳ Tour adversaire"}
+      </div>
+
       {/* ══ Zone adversaire — rotate 180° (vue depuis l'adversaire) ══ */}
       {/* DOM order: row closest to BF first → après rotation il apparaît visuellement en bas (proche BF) */}
       <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5" style={{ transform: "rotate(180deg)" }}>
 
-        {/* DOM row 1 → visuel bas après rotation : Champ | Legend | BF-ref | spacer */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <RiftCell label="Champion" accent="purple" className={SM}>
-            {(opp?.champion || []).slice(0, 1).map((c) => (
-              <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-            ))}
-            {!(opp?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
-          </RiftCell>
-          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
-            {opp?.legendCard
-              ? <GameCard card={opp.legendCard} zone="opp-legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-base text-amber-500/60">♛</span>}
-          </RiftCell>
-          <RiftCell label="Battlefield" className={SM} onClick={() => opp?.battlefieldCard && setZoom(opp.battlefieldCard)}>
-            {opp?.battlefieldCard
-              ? <GameCard card={opp.battlefieldCard} zone="opp-bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-white/20">—</span>}
-          </RiftCell>
-          <div className="flex-1" />
-        </div>
-
-        {/* DOM row 2 → visuel milieu : Main Deck | Base */}
+        {/* DOM row 1 → visuel bas après rotation : Main Deck | Base | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Main Deck" className={SM}>
             <span className="text-xl">🂠</span>
@@ -829,6 +807,17 @@ function Board({ room: initialRoom, mySocketId, code }) {
               ))}
               {!(opp?.field?.length) && <span className="text-[9px] text-white/20 w-full text-center">Base</span>}
             </div>
+          </RiftCell>
+          <RiftCell label="Champion" accent="purple" className={SM}>
+            {(opp?.champion || []).slice(0, 1).map((c) => (
+              <GameCard key={c.instanceId} card={c} zone="opp-champion" isMe={false} size="fill" className="w-[36px] h-[50px]" />
+            ))}
+            {!(opp?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          </RiftCell>
+          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
+            {opp?.legendCard
+              ? <GameCard card={opp.legendCard} zone="opp-legend" isMe={false} size="fill" className="w-[36px] h-[50px]" />
+              : <span className="text-base text-amber-500/60">♛</span>}
           </RiftCell>
         </div>
 
@@ -869,30 +858,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {/* ══ Zone moi : 3 lignes ══ */}
       <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5">
 
-        {/* Moi ligne 1 (proche BF) : spacer | BF-ref | Champion | Legend */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <div className="flex-1" />
-          <RiftCell label="Battlefield" className={SM} onClick={() => me?.battlefieldCard && setZoom(me.battlefieldCard)}>
-            {me?.battlefieldCard
-              ? <GameCard card={me.battlefieldCard} zone="bf-card" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-[9px] text-white/20">—</span>}
-          </RiftCell>
-          <RiftCell label="Champion" accent="purple" className={SM}
-            onClick={() => (me?.champion || [])[0] && setMenu({ card: me.champion[0], zone: "champion", bfIndex: null })}>
-            {(me?.champion || []).slice(0, 1).map((c) => (
-              <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-[44px]"
-                onTap={onCardTap} onLongPress={onCardLongPress} />
-            ))}
-            {!(me?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
-          </RiftCell>
-          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
-            {me?.legendCard
-              ? <GameCard card={me.legendCard} zone="legend" isMe={false} size="fill" className="w-[36px] h-[44px]" />
-              : <span className="text-base text-amber-500/60">♛</span>}
-          </RiftCell>
-        </div>
-
-        {/* Moi ligne 2 : Main Deck | Base */}
+        {/* Moi ligne 1 (proche BF) : Main Deck | Base | Champion | Legend */}
         <div className={`flex gap-0.5 ${ROW}`}>
           <RiftCell label="Main Deck" className={SM} onClick={() => isMyTurn && send({ type: "DRAW" })}>
             <span className="text-xl">🂠</span>
@@ -911,6 +877,19 @@ function Board({ room: initialRoom, mySocketId, code }) {
               </div>
             </RiftCell>
           </div>
+          <RiftCell label="Champion" accent="purple" className={SM}
+            onClick={() => (me?.champion || [])[0] && setMenu({ card: me.champion[0], zone: "champion", bfIndex: null })}>
+            {(me?.champion || []).slice(0, 1).map((c) => (
+              <GameCard key={c.instanceId} card={c} zone="champion" isMe size="fill" className="w-[36px] h-[50px]"
+                onTap={onCardTap} onLongPress={onCardLongPress} />
+            ))}
+            {!(me?.champion?.length) && <span className="text-base text-purple-500/60">⚔</span>}
+          </RiftCell>
+          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
+            {me?.legendCard
+              ? <GameCard card={me.legendCard} zone="legend" isMe={false} size="fill" className="w-[36px] h-[50px]" />
+              : <span className="text-base text-amber-500/60">♛</span>}
+          </RiftCell>
         </div>
 
         {/* Moi ligne 3 (proche main) : RuneDeck | Runes | Trash */}
