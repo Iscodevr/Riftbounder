@@ -495,44 +495,46 @@ function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, 
 
   return (
     <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-      className={`flex-1 rounded-lg border-2 transition-colors flex flex-col h-full
-        ${over ? "border-yellow-400 bg-yellow-400/5" : controlColor} bg-black/30`}>
+      className={`flex-1 rounded-lg border-2 transition-colors relative overflow-hidden flex flex-col h-full
+        ${over ? "border-yellow-400" : controlColor}`}>
 
-      {/* Header fixe avec image BF centrée */}
-      <div className="shrink-0 relative flex items-center justify-center px-1 py-0.5 bg-black/50 overflow-hidden h-[28px]">
-        {bf.card?.image_small && (
-          <img src={bf.card.image_small} alt={bf.card.name} className="absolute inset-0 w-full h-full object-cover opacity-30" />
-        )}
-        <span className="relative text-[9px] text-gray-200 font-semibold truncate z-10">{bf.card?.name || `BF ${bf.id + 1}`}</span>
+      {/* Image BF en fond centré */}
+      {bf.card?.image_small && (
+        <img src={bf.card.image_small} alt={bf.card.name}
+          className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" />
+      )}
+
+      {/* Nom + statut en haut */}
+      <div className="relative z-10 shrink-0 flex items-center justify-between px-1 py-0.5 bg-black/40">
+        <span className="text-[8px] text-gray-300 truncate">{bf.card?.name || `BF ${bf.id + 1}`}</span>
         {bf.conquered && (
-          <span className={`relative z-10 ml-1 text-[8px] font-bold ${controller === myPlayerIndex ? "text-green-400" : "text-red-400"}`}>
+          <span className={`text-[8px] font-bold ${controller === myPlayerIndex ? "text-green-400" : "text-red-400"}`}>
             {controller === myPlayerIndex ? "✓" : "✗"}
           </span>
         )}
       </div>
 
-      {/* Unités adverses — flex-1, hauteur identique */}
-      <div className="flex-1 relative flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden border-b border-gray-800/40 min-h-0">
+      {/* Unités adverses */}
+      <div className="relative z-10 flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden border-b border-gray-800/40 min-h-0">
         {oppUnits.map((card) => (
           <GameCard key={card.instanceId} card={card} zone="bf-opp" bfIndex={bf.id} isMe={false} size="sm" />
         ))}
-        {oppUnits.length === 0 && <span className="text-[7px] text-gray-800 w-full text-center self-center">adv.</span>}
-        {/* Bouton combat en overlay — ne change pas la hauteur */}
+        {oppUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center self-center">adv.</span>}
         {hasCombat && isMe && (
           <button onClick={() => onResolveCombat(bf.id)}
-            className="absolute inset-0 flex items-center justify-center bg-red-950/70 text-[9px] text-red-300 font-bold">
+            className="absolute inset-0 flex items-center justify-center bg-red-950/70 text-[9px] text-red-300 font-bold z-20">
             ⚔️ Combat
           </button>
         )}
       </div>
 
-      {/* Mes unités — flex-1 */}
-      <div className="flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden min-h-0">
+      {/* Mes unités */}
+      <div className="relative z-10 flex-1 flex flex-wrap content-start gap-0.5 p-0.5 overflow-hidden min-h-0">
         {myUnits.map((card) => (
           <GameCard key={card.instanceId} card={card} zone="bf" bfIndex={bf.id} isMe={isMe} size="sm"
             onTap={onCardTap} onLongPress={onCardLongPress} />
         ))}
-        {myUnits.length === 0 && <span className="text-[7px] text-gray-800 w-full text-center self-center">moi</span>}
+        {myUnits.length === 0 && <span className="text-[7px] text-gray-700 w-full text-center self-center">moi</span>}
       </div>
     </div>
   );
