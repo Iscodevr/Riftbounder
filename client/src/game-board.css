@@ -37,19 +37,17 @@
 
 .player-section .background,
 .opponent-section .background {
-  background-color: rgb(8, 14, 28);
+  background-color: rgb(35, 55, 77);
   background-size: cover;
   background-position: center;
-  width: calc(100% + 32vh - var(--playmat-border) * 2) !important;
   margin: var(--playmat-border);
   margin-bottom: 0;
+  width: calc(100% - var(--playmat-border) * 2) !important;
   height: calc(100% - var(--playmat-border)) !important;
   border-radius: var(--playmat-border-radius);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   transition: background-image 0.5s;
-  /* Assombrir le fond pour rendre les zones lisibles */
-  filter: brightness(0.35);
 }
 
 /* ── justify-content-after = flex-end ── */
@@ -73,11 +71,11 @@
 }
 
 .board-section .blurred-background {
-  --blur: 4px;
-  background-color: rgba(6, 10, 22, 0.72) !important;
+  --blur: 0px;
+  background-color: rgba(var(--section-background-rgb), 0.2) !important;
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
-  outline: 0.15vh solid rgba(255, 255, 255, 0.1);
+  outline: 0.1vh solid rgba(255, 255, 255, 0.15);
   border-radius: 1vh;
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
