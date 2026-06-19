@@ -772,9 +772,8 @@ function Board({ room: initialRoom, mySocketId, code }) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Tailles fixes calquées sur les proportions tcg-arena
-  const NARROW = "w-[44px] shrink-0"; // deck, legend, champion, trash
-  const CARD_SM = "w-[28px] h-[40px]";
+  const NARROW = "w-[44px] shrink-0";
+  const CARD_SM = "w-[26px] h-[34px]";
 
   // Section horizontale d'un joueur (une ligne de zones)
   const PlayerRow = ({ p, isMe: pIsMe, flipped = false }) => {
@@ -874,7 +873,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
     <div className="fixed inset-0 overflow-hidden select-none flex flex-col" style={{ background: "#0a0f1a", touchAction: "manipulation" }}>
 
       {/* ══ TOP BAR ══ */}
-      <div className="shrink-0 flex items-center gap-2 px-3 h-[30px] border-b" style={{ background: "#06090f", borderColor: "#1a2235" }}>
+      <div className="shrink-0 flex items-center gap-2 px-3 h-[28px] border-b" style={{ background: "#06090f", borderColor: "#1a2235" }}>
         <span className="text-xs font-bold text-gray-500">{opp?.score ?? 0}/8</span>
         <div className="w-16 h-1 bg-gray-800 rounded-full overflow-hidden">
           <div className="h-full bg-gray-500 rounded-full" style={{ width: `${Math.min((opp?.score ?? 0) / 8, 1) * 100}%` }} />
@@ -893,13 +892,13 @@ function Board({ room: initialRoom, mySocketId, code }) {
         <button onClick={() => setGameMenu(true)} className="text-gray-500 hover:text-white ml-1 px-1">☰</button>
       </div>
 
-      {/* ══ ZONE ADVERSAIRE ══ */}
-      <div className="shrink-0 px-1 pt-0.5 pb-px" style={{ height: "80px" }}>
+      {/* ══ ZONE ADVERSAIRE — thin strip 52px ══ */}
+      <div className="shrink-0 px-1 pt-px pb-px" style={{ height: "52px" }}>
         <PlayerRow p={opp} isMe={false} flipped />
       </div>
 
-      {/* ══ BATTLEFIELDS ══ */}
-      <div className="shrink-0 px-1 py-0.5" style={{ height: "78px" }}>
+      {/* ══ BATTLEFIELDS — zone dominante 160px ══ */}
+      <div className="shrink-0 flex-1 px-1 py-0.5 min-h-0" style={{ height: "160px" }}>
         {bfs.length > 0 ? (
           <div className="flex gap-1 h-full">
             {bfs.map((bf) => (
@@ -910,30 +909,30 @@ function Board({ room: initialRoom, mySocketId, code }) {
           </div>
         ) : (
           <div className="h-full flex items-center justify-center text-[9px] text-gray-700 border border-dashed border-gray-800 rounded">
-            Aucun Battlefield — glisser les unités depuis la Base
+            Aucun Battlefield
           </div>
         )}
       </div>
 
-      {/* ══ MES ZONES ══ */}
-      <div className="shrink-0 px-1 pt-px pb-0.5" style={{ height: "80px" }}>
+      {/* ══ MES ZONES — thin strip 52px ══ */}
+      <div className="shrink-0 px-1 pt-px pb-px" style={{ height: "52px" }}>
         <PlayerRow p={me} isMe />
       </div>
 
-      {/* ══ MA MAIN ══ */}
-      <div className="flex-1 flex gap-1.5 overflow-x-auto px-2 py-1.5 items-center border-t min-h-[80px]"
-        style={{ background: "#06090f", borderColor: "#1a2235" }}>
+      {/* ══ MA MAIN — 56px ══ */}
+      <div className="shrink-0 flex gap-1.5 overflow-x-auto px-2 py-1 items-center border-t"
+        style={{ height: "56px", background: "#06090f", borderColor: "#1a2235" }}>
         {(me?.hand || []).map((card) => (
           <GameCard key={card.instanceId} card={card} zone="hand" isMe size="fill"
-            className="w-[52px] h-full shrink-0"
+            className="w-[36px] h-full shrink-0"
             onTap={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })}
             onLongPress={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })} />
         ))}
-        {!me?.hand?.length && <span className="text-sm text-gray-700 px-2">Main vide</span>}
+        {!me?.hand?.length && <span className="text-xs text-gray-700 px-2">Main vide</span>}
       </div>
 
       {/* ══ BARRE D'ACTIONS ══ */}
-      <div className="shrink-0 flex items-center gap-2 px-3 h-[34px] border-t" style={{ background: "#06090f", borderColor: "#1a2235" }}>
+      <div className="shrink-0 flex items-center gap-2 px-3 h-[30px] border-t" style={{ background: "#06090f", borderColor: "#1a2235" }}>
         <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
           className={`px-3 py-1 rounded text-xs font-bold transition-colors ${isMyTurn ? "bg-yellow-800/50 text-yellow-300 hover:bg-yellow-700/60" : "text-gray-700 cursor-not-allowed"}`}>
           Fin du tour
