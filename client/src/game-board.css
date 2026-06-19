@@ -49,6 +49,15 @@
   transition: background-image 0.5s;
 }
 
+.player-section .background::after,
+.opponent-section .background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 10, 20, 0.72);
+  border-radius: inherit;
+}
+
 /* ── justify-content-after = flex-end ── */
 .justify-content-after {
   justify-content: flex-end;
