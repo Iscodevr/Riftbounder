@@ -8,6 +8,16 @@ import "../game-board.css";
 
 const drag = { card: null, fromZone: null, bfIndex: null };
 
+const STATUS_TOKENS = [
+  { id: "stun",      label: "Stun",      icon: "💫" },
+  { id: "buff",      label: "Buff",      icon: "⬆️" },
+  { id: "temporary", label: "Temporary", icon: "⏱️" },
+  { id: "deflect",   label: "Deflect",   icon: "🛡️" },
+  { id: "ganking",   label: "Ganking",   icon: "⚡" },
+  { id: "tank",      label: "Tank",      icon: "🛡" },
+];
+const STATUS_TOKEN_ICONS = Object.fromEntries(STATUS_TOKENS.map((t) => [t.id, t.icon]));
+
 // ── Lobby ─────────────────────────────────────────────────────────────────────
 function Lobby({ onJoined }) {
   const { user } = useAuth();
@@ -276,6 +286,16 @@ function GameCard({ card, zone, bfIndex = null, isMe, onTap, onLongPress, size =
           {card.energy_cost}⚡
         </div>
       )}
+      {/* Status tokens overlay */}
+      {!faceDown && card.statusTokens && card.statusTokens.length > 0 && (
+        <div className="absolute top-0 left-0 flex flex-col gap-px p-px pointer-events-none">
+          {card.statusTokens.map((t) => (
+            <span key={t} className="text-[8px] leading-none bg-black/70 rounded px-px">
+              {STATUS_TOKEN_ICONS[t] || t.slice(0, 3)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -302,13 +322,14 @@ function DropZone({ label, cards = [], onDrop, onCardTap, onCardLongPress, isMe,
 }
 
 // ── Card menu ─────────────────────────────────────────────────────────────────
-function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEnergy = 0, myRuneCount = 0 }) {
+function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, onAddToken, myEnergy = 0, myRuneCount = 0 }) {
   const fromHand = zone === "hand";
   const fromChampion = zone === "champion";
   const fromBF = typeof bfIndex === "number";
   const fromRune = zone === "runeHand";
 
   const zoomAction = { label: "🔍 Voir la carte", action: "__zoom__" };
+  const addTokenAction = { label: "🏷️ Ajouter un marker", action: "__addtoken__" };
   let actions = [];
 
   if (fromRune) {
@@ -342,6 +363,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
     actions = [
       zoomAction,
       { label: "Épuiser / Désépuiser", action: { type: "EXHAUST", instanceId: card.instanceId } },
+      addTokenAction,
       { label: "→ Base (retraite)", action: { type: "MOVE_FROM_BF", instanceId: card.instanceId, bfIndex } },
       { label: "→ Défausse", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
       { label: "+1 compteur", action: { type: "COUNTER", instanceId: card.instanceId, delta: 1 } },
@@ -358,6 +380,7 @@ function CardMenu({ card, zone, bfIndex, battlefields, onAction, onClose, myEner
       { label: "+1 compteur", action: { type: "COUNTER", instanceId: card.instanceId, delta: 1 } },
       { label: "-1 compteur", action: { type: "COUNTER", instanceId: card.instanceId, delta: -1 } },
       { label: card.hidden ? "Révéler" : "Cacher", action: { type: "HIDE", instanceId: card.instanceId } },
+      addTokenAction,
       { label: "→ Main", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "hand" } },
       { label: "→ Défausse", action: { type: "MOVE_TO_ZONE", instanceId: card.instanceId, toZone: "graveyard" } },
       { label: "Bannir", action: { type: "BANISH", instanceId: card.instanceId } },
@@ -407,6 +430,94 @@ function GameLog({ log, myPlayerIndex }) {
       <button onClick={() => setOpen(o => !o)}
         className="text-[10px] text-gray-500 hover:text-gray-300 px-1 transition-colors">
         📋{open ? "▾" : "▸"}
+      </button>
+    </div>
+  );
+}
+
+// ── GameChat ──────────────────────────────────────────────────────────────────
+const QUICK_EMOJIS = ["👍", "👋", "⏳", "❓", "✔️", "❌", "🎉", "🤔"];
+
+function GameChat({ code, myPlayerIndex }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const listRef = useRef(null);
+
+  useSocket({
+    "game:chat": (msg) => {
+      setMessages((prev) => [...prev.slice(-49), msg]);
+      if (!open) setUnread((n) => n + 1);
+    },
+  });
+
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages, open]);
+
+  const sendText = (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    getSocket().emit("game:chat", { code, text: text.trim() });
+    setText("");
+  };
+
+  const sendEmoji = (emoji) => {
+    getSocket().emit("game:chat", { code, emoji });
+  };
+
+  const toggle = () => { setOpen((o) => !o); if (!open) setUnread(0); };
+
+  return (
+    <div className="fixed z-[150]" style={{ bottom: "3vh", right: "0.5vh" }}>
+      {open && (
+        <div className="flex flex-col bg-gray-950/95 border border-gray-700 rounded-xl shadow-2xl mb-1 overflow-hidden"
+          style={{ width: "22vh", minWidth: 180, maxWidth: 260 }}>
+          {/* Emojis rapides */}
+          <div className="flex flex-wrap gap-px p-1 border-b border-gray-800">
+            {QUICK_EMOJIS.map((e) => (
+              <button key={e} onClick={() => sendEmoji(e)}
+                className="text-base hover:scale-125 transition-transform px-0.5 leading-none">
+                {e}
+              </button>
+            ))}
+          </div>
+          {/* Messages */}
+          <div ref={listRef} className="overflow-y-auto flex-1 p-1.5 space-y-0.5"
+            style={{ maxHeight: "16vh", minHeight: "6vh" }}>
+            {messages.length === 0 && (
+              <p className="text-[10px] text-gray-700 text-center py-2">Aucun message</p>
+            )}
+            {messages.map((m) => (
+              <div key={m.id}
+                className={`text-[11px] leading-snug ${m.playerIndex === myPlayerIndex ? "text-yellow-300 text-right" : "text-gray-300 text-left"}`}>
+                {m.emoji ? <span className="text-base">{m.emoji}</span> : m.text}
+              </div>
+            ))}
+          </div>
+          {/* Saisie */}
+          <form onSubmit={sendText} className="flex border-t border-gray-800">
+            <input
+              className="flex-1 bg-transparent text-[11px] text-white px-2 py-1.5 outline-none placeholder-gray-700"
+              placeholder="Message…"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              maxLength={120}
+            />
+            <button type="submit" className="px-2 text-gray-500 hover:text-white text-sm">↵</button>
+          </form>
+        </div>
+      )}
+      {/* Bouton toggle */}
+      <button onClick={toggle}
+        className="text-[11px] text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1">
+        💬
+        {unread > 0 && !open && (
+          <span className="bg-yellow-500 text-gray-950 text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+            {unread}
+          </span>
+        )}
       </button>
     </div>
   );
@@ -704,8 +815,11 @@ function Board({ room: initialRoom, mySocketId, code }) {
   const [zoom, setZoom] = useState(null);
   const [zoneViewer, setZoneViewer] = useState(null);
   const [tokenPicker, setTokenPicker] = useState(false);
+  const [statusTokenTarget, setStatusTokenTarget] = useState(null); // { instanceId }
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [gameMenu, setGameMenu] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
   const { logout } = useAuth();
   const { lang, toggleLang } = useLanguage();
 
@@ -1102,10 +1216,21 @@ function Board({ room: initialRoom, mySocketId, code }) {
             <div className="mouse-dropable-section flex flex-row h-full items-center relative" style={{ gap: "0.3vh", padding: "0.5vh", zIndex: 1 }}>
               <div className="section-title">Mana</div>
               {(p?.runeHand || []).map(card => (
-                <div key={card.instanceId} style={{ height: "85%", aspectRatio: "63/88", cursor: forMe && !card.exhausted ? "pointer" : "default",
-                  opacity: card.exhausted ? 0.5 : 1 }}
+                <div key={card.instanceId} className="relative" style={{ height: "85%", aspectRatio: "63/88",
+                  cursor: forMe && !card.exhausted ? "pointer" : "default", opacity: card.exhausted ? 0.5 : 1 }}
                   onClick={forMe && !card.exhausted ? () => isMyTurn && send({ type: "EXHAUST_RUNE", instanceId: card.instanceId }) : undefined}>
                   <GameCard card={card} zone="runeHand" isMe={forMe} size="fill" />
+                  {/* Bouton Recycle inline (↺) */}
+                  {forMe && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); send({ type: "RECYCLE_RUNE", instanceId: card.instanceId }); }}
+                      title="Recycler (→ +1 énergie domaine)"
+                      style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(30,80,140,0.85)",
+                        border: "none", borderRadius: "2px 0 0 0", fontSize: "0.9vh", color: "#93c5fd",
+                        lineHeight: 1, padding: "1px 2px", cursor: "pointer", zIndex: 10 }}>
+                      ↺
+                    </button>
+                  )}
                 </div>
               ))}
               {!(p?.runeHand?.length) && <span style={{ fontSize: "1.2vh", color: "rgba(255,255,255,0.2)" }}>—</span>}
@@ -1223,6 +1348,14 @@ function Board({ room: initialRoom, mySocketId, code }) {
         <button onClick={() => isMyTurn && setTokenPicker(true)} disabled={!isMyTurn}
           style={{ background: "none", border: "none", fontSize: "1.8vh", cursor: isMyTurn ? "pointer" : "default",
             opacity: isMyTurn ? 1 : 0.3, color: "#9ca3af" }}>🪙</button>
+        {/* Dé */}
+        <button onClick={() => send({ type: "ROLL_DIE", sides: 6 })}
+          title="Lancer un d6"
+          style={{ background: "none", border: "none", fontSize: "1.6vh", color: "#9ca3af", cursor: "pointer" }}>🎲</button>
+        {/* Notes */}
+        <button onClick={() => setNotesOpen((o) => !o)}
+          title="Notes"
+          style={{ background: "none", border: "none", fontSize: "1.6vh", color: notesOpen ? "#facc15" : "#4b5563", cursor: "pointer" }}>📝</button>
         <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })}
           style={{ background: "none", border: "none", fontSize: "1.1vh", color: "#4b5563", cursor: "pointer" }}>
           🚫{me?.banishmentSize ?? 0}
@@ -1345,7 +1478,12 @@ function Board({ room: initialRoom, mySocketId, code }) {
       )}
       {menu && (
         <CardMenu card={menu.card} zone={menu.zone} bfIndex={menu.bfIndex}
-          battlefields={bfs} onAction={(a) => { if (a === "__zoom__") { setZoom(menu.card); return; } send(a); }}
+          battlefields={bfs}
+          onAction={(a) => {
+            if (a === "__zoom__") { setZoom(menu.card); return; }
+            if (a === "__addtoken__") { setStatusTokenTarget(menu.card.instanceId); setMenu(null); return; }
+            send(a);
+          }}
           onClose={() => setMenu(null)} myEnergy={me?.energy ?? 0}
           myRuneCount={(me?.runeHand || []).filter(r => !r.exhausted).length} />
       )}
@@ -1356,6 +1494,46 @@ function Board({ room: initialRoom, mySocketId, code }) {
           onClose={() => setZoneViewer(null)} onZoom={(card) => setZoom(card)} />
       )}
       {tokenPicker && <TokenPicker onClose={() => setTokenPicker(false)} onPick={(card) => send({ type: "CREATE_TOKEN", card })} />}
+
+      {/* Status Token Picker */}
+      {statusTokenTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setStatusTokenTarget(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-3 w-64" onClick={e => e.stopPropagation()}>
+            <p className="text-xs text-gray-400 mb-2 text-center">Ajouter un marker</p>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_TOKENS.map((t) => (
+                <button key={t.id}
+                  onClick={() => { send({ type: "ADD_STATUS_TOKEN", instanceId: statusTokenTarget, token: t.id }); setStatusTokenTarget(null); }}
+                  className="flex flex-col items-center gap-1 py-2 rounded-xl border border-gray-700 hover:border-yellow-400 hover:bg-gray-800 transition-colors">
+                  <span className="text-xl">{t.icon}</span>
+                  <span className="text-[10px] text-gray-400">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setStatusTokenTarget(null)} className="w-full mt-2 text-xs text-gray-600 hover:text-gray-400">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* Notes joueur */}
+      {notesOpen && (
+        <div className="fixed z-[140]" style={{ bottom: "12vh", left: "10.5vh" }}>
+          <div className="bg-gray-950/95 border border-gray-700 rounded-xl shadow-xl p-2" style={{ width: "22vh", minWidth: 180 }}>
+            <p className="text-[9px] text-gray-600 mb-1">📝 Notes (local)</p>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="w-full bg-transparent text-[11px] text-gray-200 resize-none outline-none placeholder-gray-700"
+              style={{ minHeight: "10vh" }}
+              placeholder="Écrire ici…"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Chat */}
+      <GameChat code={code} myPlayerIndex={myIdx} />
     </div>
   );
 }

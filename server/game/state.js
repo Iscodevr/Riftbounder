@@ -50,7 +50,7 @@ function makePlayerState(userId, socketId) {
 }
 
 function inst(card) {
-  return { ...card, instanceId: randomUUID(), exhausted: false, counters: 0, hidden: false };
+  return { ...card, instanceId: randomUUID(), exhausted: false, counters: 0, hidden: false, statusTokens: [] };
 }
 
 function findInZones(player, instanceId) {
@@ -478,8 +478,55 @@ function applyAction(code, socketId, action) {
       break;
     }
 
+    case "ADD_STATUS_TOKEN": {
+      // Ajouter un marker de statut sur une carte (cherche chez le joueur ET l'adversaire)
+      const allPlayers = [p, opp].filter(Boolean);
+      let found2 = null;
+      for (const pl of allPlayers) {
+        const f = findInZones(pl, action.instanceId);
+        if (f) { found2 = { pl, ...f }; break; }
+        for (const bf of room.battlefields) {
+          const arr = bf.units[pl.playerIndex] || [];
+          const idx = arr.findIndex((c) => c.instanceId === action.instanceId);
+          if (idx !== -1) { found2 = { pl, zone: `bf${bf.id}`, card: arr[idx], arr, idx }; break; }
+        }
+        if (found2) break;
+      }
+      if (!found2) return { error: "Carte introuvable" };
+      const targetCard = found2.arr ? found2.arr[found2.idx] : found2.pl[found2.zone][found2.idx];
+      if (!targetCard.statusTokens) targetCard.statusTokens = [];
+      if (!targetCard.statusTokens.includes(action.token)) targetCard.statusTokens.push(action.token);
+      break;
+    }
+
+    case "REMOVE_STATUS_TOKEN": {
+      const allPlayers2 = [p, opp].filter(Boolean);
+      let found3 = null;
+      for (const pl of allPlayers2) {
+        const f = findInZones(pl, action.instanceId);
+        if (f) { found3 = { pl, ...f }; break; }
+        for (const bf of room.battlefields) {
+          const arr = bf.units[pl.playerIndex] || [];
+          const idx = arr.findIndex((c) => c.instanceId === action.instanceId);
+          if (idx !== -1) { found3 = { pl, zone: `bf${bf.id}`, card: arr[idx], arr, idx }; break; }
+        }
+        if (found3) break;
+      }
+      if (!found3) return { error: "Carte introuvable" };
+      const targetCard3 = found3.arr ? found3.arr[found3.idx] : found3.pl[found3.zone][found3.idx];
+      if (targetCard3.statusTokens) targetCard3.statusTokens = targetCard3.statusTokens.filter((t) => t !== action.token);
+      break;
+    }
+
+    case "ROLL_DIE": {
+      const sides = action.sides || 6;
+      const result = Math.floor(Math.random() * sides) + 1;
+      addLog(room, p.playerIndex, `lance un d${sides} → ${result}`);
+      break;
+    }
+
     case "CREATE_TOKEN": {
-      const token = { ...action.card, instanceId: randomUUID(), exhausted: false, counters: 0, hidden: false };
+      const token = { ...action.card, instanceId: randomUUID(), exhausted: false, counters: 0, hidden: false, statusTokens: [] };
       p.field.push(token);
       addLog(room, p.playerIndex, `crée un token ${token.name}`);
       break;
@@ -504,4 +551,4 @@ function removePlayer(socketId) {
   return null;
 }
 
-module.exports = { createRoom, joinRoom, setDeck, selectBattlefield, doMulligan, applyAction, removePlayer };
+module.exports = { createRoom, joinRoom, setDeck, selectBattlefield, doMulligan, applyAction, removePlayer, rooms };

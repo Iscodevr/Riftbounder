@@ -112,6 +112,16 @@ module.exports = function registerGame(io) {
       broadcast(io, result.room);
     });
 
+    socket.on("game:chat", ({ code, text, emoji }) => {
+      const { rooms } = require("./state");
+      const room = rooms ? rooms.get(code) : null;
+      if (!room) return;
+      const sender = room.players.find((p) => p.socketId === socket.id);
+      if (!sender) return;
+      const msg = { playerIndex: sender.playerIndex, text: text || "", emoji: emoji || "", id: Date.now() + Math.random() };
+      io.to(code).emit("game:chat", msg);
+    });
+
     socket.on("disconnect", () => {
       const result = removePlayer(socket.id);
       if (result?.code && result.room) io.to(result.code).emit("game:opponent_left");
