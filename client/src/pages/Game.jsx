@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useLanguage } from "../hooks/useLanguage";
 import { useApi } from "../hooks/useApi";
 import { getSocket, useSocket } from "../hooks/useSocket";
+import "../game-board.css";
 
 const drag = { card: null, fromZone: null, bfIndex: null };
 
@@ -1020,112 +1021,302 @@ function Board({ room: initialRoom, mySocketId, code }) {
     return <div className="flex h-full w-full gap-px">{cells}</div>;
   };
 
+  // ── helpers de rendu de section ──
+  const oppIdx = myIdx === 0 ? 1 : 0;
+
+  const renderBFColumns = (forMe) => bfs.map(bf => {
+    const pIdx = forMe ? myIdx : oppIdx;
+    const units = bf.units[pIdx] || [];
+    const foeUnits = bf.units[forMe ? oppIdx : myIdx] || [];
+    const hasCombat = forMe && units.length > 0 && foeUnits.length > 0;
+    return (
+      <div key={bf.id} className="layout-board-section flex flex-col relative"
+        style={{ flex: 1, height: "24.25vh", margin: "0.25vh" }}
+        onDragOver={forMe ? e => e.preventDefault() : undefined}
+        onDrop={forMe ? e => { e.preventDefault(); if (drag.card) handleDropToBF(drag.card, drag.fromZone, bf.id); } : undefined}>
+
+        {/* Carte BF flottante (cachée côté adversaire par CSS .opponent-section .section-top-visual { display:none }) */}
+        <div className="section-top-visual">
+          <div className="board-section relative h-full w-full" style={{ cursor: forMe ? "pointer" : "default" }}
+            onClick={() => forMe && bf.card && setZoom(bf.card)}>
+            <div className="blurred-background" />
+            {bf.card?.image_small
+              ? <img src={bf.card.image_small} className="absolute inset-0 w-full h-full"
+                  style={{ objectFit: "cover", borderRadius: "1vh", opacity: 0.9 }} alt={bf.card.name} />
+              : <div className="absolute inset-0" style={{ borderRadius: "1vh", background: "#1a2535" }} />}
+            <div style={{ position: "absolute", bottom: "0.5vh", left: 0, right: 0, textAlign: "center",
+              fontSize: "1.4vh", fontWeight: 700, color: "white", textShadow: "0 0 0.5vh black", padding: "0 0.5vh" }}>
+              {bf.card?.name || `BF ${bf.id + 1}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Zone d'unités (marginTop:auto pour pousser en bas) */}
+        <div className="board-section-wrapper w-full relative" style={{ marginTop: "auto", flex: 1 }}>
+          <div className={`board-section mouse-dropable-section flex flex-row h-full w-full items-center justify-center relative section-B${bf.id + 1}`}
+            style={{ gap: "0.5vh", padding: "0.5vh" }}>
+            <div className="blurred-background" />
+            <div className="section-title">{bf.card?.name || `BF ${bf.id + 1}`}</div>
+            {units.map(card => (
+              <div key={card.instanceId} style={{ height: "85%", aspectRatio: "63/88", position: "relative", zIndex: 1 }}>
+                <GameCard card={card} zone={forMe ? "bf" : "bf-opp"} bfIndex={bf.id} isMe={forMe} size="fill"
+                  onTap={forMe ? onCardTap : undefined} onLongPress={forMe ? onCardLongPress : undefined} />
+              </div>
+            ))}
+            {hasCombat && (
+              <button onClick={() => handleResolveCombat(bf.id)}
+                className="absolute bottom-1 right-1 z-10 text-xs font-bold px-2 py-0.5 rounded"
+                style={{ background: "#7f1d1d", color: "#fecaca", fontSize: "1vh" }}>
+                ⚔️ Combat
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  });
+
+  const renderZoneRow = (forMe) => {
+    const p = forMe ? me : opp;
+    return (
+      <div className="layout-board-section flex flex-row" style={{ flex: 1, gap: "0.25vh" }}>
+
+        {/* Runes Deck */}
+        <div className="board-section-wrapper" style={{ width: "auto" }}>
+          <div className={`board-section alignment-Deck section-Runes relative h-full flex flex-col items-center justify-center ${forMe ? "cursor-pointer" : ""}`}
+            style={{ padding: "0.5vh", minWidth: "7vh" }}
+            onClick={forMe ? () => send({ type: "DRAW" }) : undefined}>
+            <div className="blurred-background" />
+            <div className="mouse-dropable-section flex flex-col items-center justify-center h-full w-full relative" style={{ zIndex: 1 }}>
+              <div style={{ height: "70%", aspectRatio: "63/88", background: "#1a2535", borderRadius: "0.5vh" }} />
+              <div className="section-card-count">{forMe ? (p?.deckSize ?? 0) : (p?.runeDeckSize ?? 0)}</div>
+            </div>
+            <div className="section-title">{forMe ? "Deck" : "R.Deck"}</div>
+          </div>
+        </div>
+
+        {/* Mana (runes actives) */}
+        <div className="board-section-wrapper" style={{ width: "35%" }}>
+          <div className="board-section alignment-Center section-Mana relative h-full">
+            <div className="blurred-background" />
+            <div className="mouse-dropable-section flex flex-row h-full items-center relative" style={{ gap: "0.3vh", padding: "0.5vh", zIndex: 1 }}>
+              <div className="section-title">Mana</div>
+              {(p?.runeHand || []).map(card => (
+                <div key={card.instanceId} style={{ height: "85%", aspectRatio: "63/88", cursor: forMe && !card.exhausted ? "pointer" : "default",
+                  opacity: card.exhausted ? 0.5 : 1 }}
+                  onClick={forMe && !card.exhausted ? () => isMyTurn && send({ type: "EXHAUST_RUNE", instanceId: card.instanceId }) : undefined}>
+                  <GameCard card={card} zone="runeHand" isMe={forMe} size="fill" />
+                </div>
+              ))}
+              {!(p?.runeHand?.length) && <span style={{ fontSize: "1.2vh", color: "rgba(255,255,255,0.2)" }}>—</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Base */}
+        <div className="board-section-wrapper" style={{ flex: 1 }}
+          onDragOver={forMe ? e => e.preventDefault() : undefined}
+          onDrop={forMe ? e => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); } : undefined}>
+          <div className="board-section alignment-Center section-Base relative h-full">
+            <div className="blurred-background" />
+            <div className="mouse-dropable-section flex flex-row h-full items-center relative" style={{ gap: "0.3vh", padding: "0.5vh", zIndex: 1 }}>
+              <div className="section-title">Base</div>
+              {(p?.field || []).map(card => (
+                <div key={card.instanceId} style={{ height: "85%", aspectRatio: "63/88" }}>
+                  <GameCard card={card} zone={forMe ? "field" : "opp-field"} isMe={forMe} size="fill"
+                    onTap={forMe ? onCardTap : undefined} onLongPress={forMe ? onCardLongPress : undefined} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="board-section-wrapper" style={{ width: "10.2vh" }}>
+          <div className="board-section alignment-Center section-Legend relative h-full"
+            onClick={() => p?.legendCard && setZoom(p.legendCard)} style={{ cursor: p?.legendCard ? "pointer" : "default" }}>
+            <div className="blurred-background" />
+            <div className="flex items-center justify-center h-full relative" style={{ zIndex: 1, padding: "0.5vh" }}>
+              {p?.legendCard
+                ? <div style={{ height: "85%", aspectRatio: "63/88" }}>
+                    <GameCard card={p.legendCard} zone={forMe ? "legend" : "opp-legend"} isMe={forMe} size="fill" />
+                  </div>
+                : <span style={{ fontSize: "3vh", color: "rgba(180,140,30,0.3)" }}>♛</span>}
+            </div>
+            <div className="section-title">Legend</div>
+          </div>
+        </div>
+
+        {/* Champion */}
+        <div className="board-section-wrapper" style={{ width: "10.2vh" }}>
+          <div className="board-section alignment-Center section-Champion relative h-full">
+            <div className="blurred-background" />
+            <div className="flex flex-col items-center justify-center h-full relative" style={{ zIndex: 1, padding: "0.3vh", gap: "0.3vh" }}>
+              {(p?.champion || []).map((card, i) => (
+                <div key={card.instanceId} style={{ height: `${85 / Math.max(1, p.champion.length)}%`, aspectRatio: "63/88" }}>
+                  <GameCard card={card} zone={forMe ? "champion" : "opp-champion"} isMe={forMe} size="fill"
+                    onTap={forMe ? onCardTap : undefined} onLongPress={forMe ? onCardLongPress : undefined} />
+                </div>
+              ))}
+            </div>
+            <div className="section-title">Champion</div>
+          </div>
+        </div>
+
+        {/* Défausse (seulement côté joueur) */}
+        {forMe && (
+          <div className="board-section-wrapper" style={{ width: "auto" }}>
+            <div className="board-section alignment-Deck relative h-full flex flex-col items-center justify-center"
+              style={{ padding: "0.5vh", minWidth: "7vh", cursor: "pointer" }}
+              onClick={() => setZoneViewer({ title: "Ma défausse", cards: p?.graveyard || [], isMe: true })}>
+              <div className="blurred-background" />
+              <div className="flex flex-col items-center justify-center h-full w-full relative" style={{ zIndex: 1 }}>
+                {p?.graveyard?.length > 0
+                  ? <div style={{ height: "70%", aspectRatio: "63/88" }}>
+                      <GameCard card={p.graveyard[p.graveyard.length - 1]} zone="gy" isMe={false} size="fill" />
+                    </div>
+                  : <span style={{ fontSize: "2.5vh", color: "#374151" }}>💀</span>}
+                <div className="section-card-count">{p?.graveyardSize ?? 0}</div>
+              </div>
+              <div className="section-title">Défausse</div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 overflow-hidden select-none flex flex-col" style={{ background: "#0a0f1a" }}>
+    <div className="game fixed inset-0 overflow-hidden select-none flex flex-row" style={{ background: "#0a0f1a" }}>
 
-      {/* ══ TOP BAR ══ */}
-      <div className="shrink-0 flex items-center gap-3 px-4 border-b" style={{ height: 40, background: "#06090f", borderColor: "#1a2235" }}>
-        <span className="text-sm font-black text-gray-400">{opp?.score ?? 0}</span>
-        <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-          <div className="h-full bg-gray-500 rounded-full transition-all" style={{ width: `${Math.min((opp?.score ?? 0) / 8, 1) * 100}%` }} />
-        </div>
-        <span className="text-xs text-gray-600">/8</span>
-        <div className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold ${isMyTurn ? "bg-green-900/60 text-green-300" : "bg-gray-800/50 text-gray-500"}`}>
-          <span className={`w-2 h-2 rounded-full ${isMyTurn ? "bg-green-400 animate-pulse" : "bg-gray-600"}`} />
-          T{room.turn ?? 1} — {isMyTurn ? "ton tour" : "adversaire"}
-        </div>
-        <span className="text-xs text-blue-400 font-bold">⚡ {me?.energy ?? 0}</span>
-        <span className="text-xs text-gray-700 font-mono">{code}</span>
-        <div className="flex-1" />
-        <span className="text-xs text-gray-600">/8</span>
-        <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-          <div className="h-full bg-yellow-500 rounded-full transition-all" style={{ width: `${Math.min((me?.score ?? 0) / 8, 1) * 100}%` }} />
-        </div>
-        <span className="text-sm font-black text-yellow-400">{me?.score ?? 0}</span>
-        <button onClick={() => setGameMenu(true)} className="ml-2 text-gray-500 hover:text-white text-lg px-1">☰</button>
-      </div>
+      {/* ══ LEFT BAR ══ */}
+      <div className="left-bar flex flex-col items-center py-3 gap-3"
+        style={{ width: "10vh", minWidth: 56, background: "#06090f", borderRight: "1px solid #1a2235", zIndex: 100 }}>
 
-      {/* ═══ ZONE ADVERSAIRE (h-50) : zones en haut, unités BF en bas ═══ */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {/* Zones OPP — 108px */}
-        <div className="shrink-0 px-1" style={{ height: 108, borderBottom: "1px solid #1a2235" }}>
-          <ZoneRow p={opp} isMeRow={false} />
+        {/* Score adversaire */}
+        <div className="flex flex-col items-center gap-1 w-full px-2">
+          <div style={{ fontSize: "1.4vh", fontWeight: 700, color: "#9ca3af" }}>{opp?.score ?? 0}<span style={{ color: "#374151" }}>/8</span></div>
+          <div style={{ width: "100%", height: 3, background: "#1a2235", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ width: `${Math.min((opp?.score ?? 0) / 8, 1) * 100}%`, height: "100%", background: "#6b7280" }} />
+          </div>
         </div>
-        {/* Unités OPP sur les BF — flex-1 */}
-        <div className="flex-1 min-h-0 flex gap-px px-1 py-1">
-          {bfs.length > 0
-            ? bfs.map(bf => (
-                <BFUnitSlot key={bf.id} bf={bf} playerIndex={myIdx === 0 ? 1 : 0}
-                  isMySlot={false} myPlayerIndex={myIdx} />
-              ))
-            : <div className="flex-1 flex items-center justify-center text-[10px] text-gray-800">Aucun Battlefield</div>
-          }
-        </div>
-      </div>
 
-      {/* ═══ CARTE BATTLEFIELD CENTRALE — 92px ═══ */}
-      <div className="shrink-0 flex gap-px px-1" style={{ height: 92, borderTop: "1px solid #1a2235", borderBottom: "1px solid #1a2235" }}>
-        {bfs.length > 0
-          ? bfs.map(bf => (
-              <BFCenterCard key={bf.id} bf={bf} myPlayerIndex={myIdx} onDrop={handleDropToBF} />
-            ))
-          : <div className="flex-1 flex items-center justify-center text-[10px] text-gray-800">
-              Aucun Battlefield — glissez des cartes depuis la Base
-            </div>
-        }
-      </div>
-
-      {/* ═══ MA ZONE (h-50) : unités BF en haut, zones + main en bas ═══ */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {/* Mes unités sur les BF — flex-1 */}
-        <div className="flex-1 min-h-0 flex gap-px px-1 py-1">
-          {bfs.length > 0
-            ? bfs.map(bf => (
-                <BFUnitSlot key={bf.id} bf={bf} playerIndex={myIdx}
-                  isMySlot onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-                  onResolveCombat={handleResolveCombat} myPlayerIndex={myIdx} />
-              ))
-            : <div className="flex-1" />
-          }
-        </div>
-        {/* Mes zones — 108px */}
-        <div className="shrink-0 px-1" style={{ height: 108, borderTop: "1px solid #1a2235" }}>
-          <ZoneRow p={me} isMeRow />
-        </div>
-        {/* Ma main — 62px */}
-        <div className="shrink-0 flex gap-1.5 overflow-x-auto items-end px-3 pb-1 pt-1"
-          style={{ height: 62, borderTop: "1px solid #1a2235", background: "#06090f" }}>
-          {(me?.hand || []).map(card => (
-            <div key={card.instanceId} className="shrink-0 h-full cursor-pointer hover:scale-105 transition-transform origin-bottom"
-              onClick={() => setMenu({ card, zone: "hand", bfIndex: null })}>
-              <GameCard card={card} zone="hand" isMe size="fill" className="h-full w-auto" />
-            </div>
-          ))}
-          {!me?.hand?.length && <span className="text-xs text-gray-700 self-center px-2">Main vide</span>}
-        </div>
-      </div>
-
-      {/* ══ BARRE D'ACTIONS ══ */}
-      <div className="shrink-0 flex items-center gap-3 px-4 border-t" style={{ height: 44, background: "#06090f", borderColor: "#1a2235" }}>
-        <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
-          className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${isMyTurn ? "bg-yellow-800/50 text-yellow-300 hover:bg-yellow-700/60" : "text-gray-700 cursor-not-allowed"}`}>
-          Fin du tour
+        {/* Fin de tour */}
+        <button onClick={() => isMyTurn && send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
+          style={{ width: "calc(100% - 8px)", padding: "1vh 0", fontSize: "1.1vh", fontWeight: 700, lineHeight: 1.3,
+            background: isMyTurn ? "linear-gradient(135deg,#1a6b3a,#22c55e)" : "#1f2937",
+            color: isMyTurn ? "#fff" : "#4b5563", border: "none", borderRadius: "0.5vh", cursor: isMyTurn ? "pointer" : "default",
+            whiteSpace: "pre-line", transition: "background 0.2s" }}>
+          {isMyTurn ? "Fin\ndu tour" : "Tour\nAdv."}
         </button>
+
+        {/* Tour + énergie */}
+        <div className="text-center" style={{ fontSize: "1.1vh", color: "#94a3b8", lineHeight: 1.6 }}>
+          <div>T{room.turn ?? 1}</div>
+          <div style={{ color: "#60a5fa" }}>⚡{me?.energy ?? 0}</div>
+          <div style={{ color: "#374151", fontSize: "0.9vh" }}>{code}</div>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Actions secondaires */}
         <button onClick={() => isMyTurn && setTokenPicker(true)} disabled={!isMyTurn}
-          className="text-sm text-gray-600 disabled:opacity-30 hover:text-gray-400">🪙</button>
+          style={{ background: "none", border: "none", fontSize: "1.8vh", cursor: isMyTurn ? "pointer" : "default",
+            opacity: isMyTurn ? 1 : 0.3, color: "#9ca3af" }}>🪙</button>
         <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })}
-          className="text-xs text-gray-700 hover:text-gray-500">🚫 {me?.banishmentSize ?? 0}</button>
-        <div className="flex-1" />
-        <GameLog log={room.log || []} myPlayerIndex={myIdx} />
+          style={{ background: "none", border: "none", fontSize: "1.1vh", color: "#4b5563", cursor: "pointer" }}>
+          🚫{me?.banishmentSize ?? 0}
+        </button>
+        <button onClick={() => setGameMenu(true)}
+          style={{ background: "none", border: "none", fontSize: "1.8vh", color: "#4b5563", cursor: "pointer" }}>☰</button>
+
+        {/* Score joueur */}
+        <div className="flex flex-col items-center gap-1 w-full px-2">
+          <div style={{ width: "100%", height: 3, background: "#1a2235", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ width: `${Math.min((me?.score ?? 0) / 8, 1) * 100}%`, height: "100%", background: "#eab308" }} />
+          </div>
+          <div style={{ fontSize: "1.4vh", fontWeight: 700, color: "#eab308" }}>{me?.score ?? 0}<span style={{ color: "#374151" }}>/8</span></div>
+        </div>
+      </div>
+
+      {/* ══ BOARD PRINCIPAL ══ */}
+      <div className="flex flex-col" style={{ flex: 1, minWidth: 0, position: "relative" }}>
+
+        {/* ── SECTION ADVERSAIRE (h-50, CSS rotate 180°) ── */}
+        <div className="opponent-section flex flex-col w-full relative" style={{ height: "50%" }}>
+          <div className="background player-playmat absolute left-0 top-0 w-full h-full"
+            style={{ backgroundImage: "url(https://russeus.github.io/RB-TCG-Arena/Images/PM_Volibear-1.png)" }} />
+          <div className="justify-content-after flex flex-col w-full h-full relative">
+            {/* Board 38vh */}
+            <div style={{ height: "38vh" }}>
+              <div className="layout-board-section flex flex-col h-full">
+                {/* Ligne BF */}
+                <div className="layout-board-section flex flex-row" style={{ height: "24.25vh" }}>
+                  {bfs.length > 0 ? renderBFColumns(false)
+                    : <div className="flex-1 flex items-center justify-center" style={{ color: "#374151", fontSize: "1rem" }}>Aucun Battlefield</div>}
+                </div>
+                {/* Ligne zones */}
+                {renderZoneRow(false)}
+              </div>
+            </div>
+            {/* Main adversaire (face cachée, absolute bottom) */}
+            <div className="hand-board-section">
+              <div className="hand flex flex-row items-end h-full" style={{ gap: "0.4vh", padding: "0.3vh", overflow: "hidden" }}>
+                {Array.from({ length: opp?.handSize ?? 0 }).map((_, i) => (
+                  <div key={i} style={{ height: "100%", aspectRatio: "63/88", background: "#1a2535", borderRadius: "0.5vh", flexShrink: 0 }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── MA SECTION (h-50, player-section current-player) ── */}
+        <div className="player-section current-player flex flex-col w-full relative" style={{ height: "50%" }}>
+          <div className="background player-playmat absolute left-0 top-0 w-full h-full"
+            style={{ backgroundImage: "url(https://russeus.github.io/RB-TCG-Arena/Images/PM_Yasuo-1.png)" }} />
+          <div className="justify-content-after flex flex-col w-full h-full relative">
+            {/* Board 38vh */}
+            <div style={{ height: "38vh" }}>
+              <div className="layout-board-section flex flex-col h-full">
+                {/* Ligne BF */}
+                <div className="layout-board-section flex flex-row" style={{ height: "24.25vh" }}>
+                  {bfs.length > 0 ? renderBFColumns(true)
+                    : <div className="flex-1 flex items-center justify-center" style={{ color: "#374151", fontSize: "1rem" }}>Aucun BF — glissez depuis la Base</div>}
+                </div>
+                {/* Ligne zones */}
+                {renderZoneRow(true)}
+              </div>
+            </div>
+            {/* Ma main (absolute bottom) */}
+            <div className="hand-board-section">
+              <div className="hand flex flex-row items-end h-full" style={{ gap: "0.5vh", padding: "0.5vh", overflowX: "auto" }}>
+                {(me?.hand || []).map(card => (
+                  <div key={card.instanceId} style={{ height: "100%", aspectRatio: "63/88", cursor: "pointer", flexShrink: 0 }}
+                    onClick={() => setMenu({ card, zone: "hand", bfIndex: null })}>
+                    <GameCard card={card} zone="hand" isMe size="fill" className="h-full w-auto" />
+                  </div>
+                ))}
+                {!me?.hand?.length && <span style={{ color: "#374151", alignSelf: "center", padding: "0 1vh", fontSize: "1.2vh" }}>Main vide</span>}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ══ TOAST ERREUR ══ */}
       {error && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg whitespace-nowrap">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl shadow-lg"
+          style={{ background: "#7f1d1d", color: "#fecaca", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
           {error}
         </div>
       )}
 
+      {/* ══ GAME LOG ══ */}
+      <div className="fixed" style={{ bottom: "0.5vh", right: "0.5vh", zIndex: 200 }}>
+        <GameLog log={room.log || []} myPlayerIndex={myIdx} />
+      </div>
+
+      {/* ══ MODALES ══ */}
       {gameMenu && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setGameMenu(false)}>
           <div className="bg-gray-900 border border-gray-700 rounded-t-2xl w-full max-w-sm p-4 space-y-2" onClick={e => e.stopPropagation()}>
@@ -1152,7 +1343,6 @@ function Board({ room: initialRoom, mySocketId, code }) {
           </div>
         </div>
       )}
-
       {menu && (
         <CardMenu card={menu.card} zone={menu.zone} bfIndex={menu.bfIndex}
           battlefields={bfs} onAction={(a) => { if (a === "__zoom__") { setZoom(menu.card); return; } send(a); }}

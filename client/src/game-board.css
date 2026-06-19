@@ -1,0 +1,210 @@
+/* ── CSS copié de tcg-arena.fr — propriété de l'auteur ── */
+
+:root {
+  --card-height: 14.5vh;
+  --playmat-border: 0.5vh;
+  --playmat-border-radius: 1vh;
+  --section-background-rgb: 80, 100, 180;
+}
+
+/* ── Conteneur jeu ── */
+.game {
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+/* ── Sections joueur ── */
+.player-section {
+  z-index: 20;
+  padding: 1vh;
+  padding-bottom: 0;
+  padding-top: calc(2vh - var(--playmat-border));
+}
+
+.opponent-section {
+  z-index: 20;
+  padding: 1vh;
+  padding-top: 0;
+  padding-bottom: calc(2vh - var(--playmat-border));
+  transform: rotate(180deg);
+}
+
+.player-section,
+.opponent-section {
+  transition: opacity 0.3s;
+}
+
+.player-section .background,
+.opponent-section .background {
+  background-size: cover;
+  background-position: center;
+  width: calc(100% + 32vh - var(--playmat-border) * 2) !important;
+  margin: var(--playmat-border);
+  margin-bottom: 0;
+  height: calc(100% - var(--playmat-border)) !important;
+  border-radius: var(--playmat-border-radius);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  transition: background-image 0.5s;
+}
+
+/* ── justify-content-after = flex-end ── */
+.justify-content-after {
+  justify-content: flex-end;
+}
+
+/* ── Layout board ── */
+.layout-board-section {
+  width: 100%;
+  justify-content: space-between;
+  position: relative;
+  --input-text-color: white;
+  --input-background-color: transparent;
+}
+
+/* ── Board section (zone) ── */
+.board-section {
+  border-radius: 1vh;
+  transition: background-color 0.1s;
+}
+
+.board-section .blurred-background {
+  --blur: 0px;
+  background-color: rgba(var(--section-background-rgb), 0.2) !important;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  outline: 0.1vh solid rgba(var(--section-background-rgb), 0.3);
+  border-radius: 1vh;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+}
+
+.board-section-wrapper:has(.alignment-Deck) {
+  width: auto !important;
+}
+
+/* ── Section title (visible au survol / pendant drag) ── */
+.board-section .section-title,
+.hand-board-section .section-title {
+  color: transparent;
+  transition: color 0.15s;
+  font-size: 0.9rem;
+  position: absolute;
+  top: -1.45rem;
+  left: 0;
+  right: 0;
+  text-align: left;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  font-weight: 700;
+  filter: drop-shadow(0 0 1vh black);
+}
+
+.game:has(.dragged) .section-title {
+  color: #fff;
+}
+
+/* ── Mouse dropable (highlight pendant drag) ── */
+.game .mouse-dropable-section {
+  border-radius: 1vh;
+}
+
+.game:has(.dragged) .mouse-dropable-section {
+  background-color: rgba(var(--section-background-rgb), 0.25);
+}
+
+.game .mouse-dropable-section.bound {
+  background-color: rgba(var(--section-background-rgb), 0.65) !important;
+}
+
+/* ── Compteur de cartes ── */
+.section-card-count {
+  font-weight: 600;
+  font-size: 3vh;
+  text-shadow: 0 0 0.5vh black, 0 0 1vh black;
+  pointer-events: none;
+}
+
+.opponent-section .section-card-count {
+  scale: -1 -1;
+  transform-origin: top left;
+}
+
+/* ── Main ── */
+.hand-board-section {
+  height: calc(var(--card-height) - 7vh);
+  width: 50vw !important;
+  max-width: calc(100vw - 90vh) !important;
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - (min(100vw - 90vh, 50vw) / 2));
+}
+
+.hand-board-section .hand {
+  height: 100%;
+}
+
+/* ── Deck pile ── */
+.deck .deck-pile {
+  perspective: 800px;
+}
+
+.deck .deck-pile div {
+  border-radius: 1vh;
+  transform-style: preserve-3d;
+  background-color: var(--deck-pile-color, #1a2535);
+}
+
+.deck .deck-pile > div:first-child {
+  box-shadow: 0 0 2vh rgba(0, 0, 0, 0.5);
+}
+
+/* ── Section BF top visual (carte BF flottante) ── */
+.section-top-visual {
+  position: absolute;
+  width: 30vh;
+  height: 12vh;
+  scale: 0.68;
+  top: 0;
+  left: 50%;
+  translate: -50% -3.25vh;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.opponent-section .section-top-visual {
+  display: none !important;
+}
+
+/* ── Ressource count (compteur runes) ── */
+.ressource-count {
+  font-size: 2vh;
+  font-weight: 700;
+  text-shadow: 0 0 0.5vh black;
+}
+
+/* ── Left bar ── */
+.left-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  position: relative;
+}
+
+/* ── Turn button ── */
+.btn-primary.turn-1 {
+  background: linear-gradient(135deg, #1a6b3a, #22c55e);
+  border-color: #22c55e;
+}
+
+/* ── Couleur de fond par défaut des sections ── */
+.section-Mana { --section-background-rgb: 60, 80, 200; }
+.section-Base { --section-background-rgb: 100, 80, 50; }
+.section-B1, .section-B2, .section-B3 { --section-background-rgb: 150, 60, 60; }
+.section-Runes { --section-background-rgb: 60, 60, 80; }
+.section-Legend { --section-background-rgb: 180, 140, 30; }
+.section-Champion { --section-background-rgb: 120, 60, 180; }
