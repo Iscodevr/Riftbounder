@@ -511,7 +511,71 @@ function EndScreen({ room, mySocketId }) {
   );
 }
 
-// ── Battlefield zone partagée ─────────────────────────────────────────────────
+// ── BF : carte centrale (92px) ────────────────────────────────────────────────
+function BFCenterCard({ bf, myPlayerIndex, onDrop }) {
+  const [over, setOver] = useState(false);
+  const controller = bf.controller;
+  const ctrlColor = controller === myPlayerIndex ? "#22c55e" : controller !== null ? "#ef4444" : null;
+  return (
+    <div className="flex-1 relative overflow-hidden"
+      style={{ border: `1px solid ${over ? "#facc15" : "#1e2d3d"}`, borderRadius: 4, background: "#060d18" }}
+      onDragOver={e => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); setOver(false); if (drag.card) onDrop(drag.card, drag.fromZone, bf.id); }}>
+      {/* Fond flouté depuis l'image de la carte BF */}
+      {bf.card?.image_small && (
+        <img src={bf.card.image_small} className="absolute inset-0 w-full h-full object-cover opacity-[0.12] pointer-events-none" alt="" />
+      )}
+      <div className="relative z-10 h-full flex items-center gap-3 px-4">
+        {bf.card?.image_small
+          ? <img src={bf.card.image_small} className="shrink-0 rounded object-cover shadow-lg" style={{ width: 46, height: 64 }} alt={bf.card.name} />
+          : <div className="shrink-0 rounded bg-gray-800" style={{ width: 46, height: 64 }} />
+        }
+        <div>
+          <div className="text-sm font-bold text-gray-100">{bf.card?.name || `Battlefield ${bf.id + 1}`}</div>
+          {ctrlColor && (
+            <div className="text-xs font-semibold mt-0.5" style={{ color: ctrlColor }}>
+              {controller === myPlayerIndex ? "● Contrôlé" : "● Adversaire"}
+            </div>
+          )}
+          {!bf.conquered && <div className="text-[10px] text-gray-600 mt-0.5">Glisser pour déployer</div>}
+        </div>
+      </div>
+      {over && <div className="absolute inset-0 border-2 border-yellow-400/50 pointer-events-none rounded" />}
+    </div>
+  );
+}
+
+// ── BF : zone d'unités (flex-1) ───────────────────────────────────────────────
+function BFUnitSlot({ bf, playerIndex, isMySlot, onCardTap, onCardLongPress, onResolveCombat, myPlayerIndex }) {
+  const units = bf.units[playerIndex] || [];
+  const oppIdx = playerIndex === 0 ? 1 : 0;
+  const oppUnits = bf.units[oppIdx] || [];
+  const hasCombat = isMySlot && units.length > 0 && oppUnits.length > 0;
+  return (
+    <div className="flex-1 relative flex items-center justify-center gap-1 px-2 overflow-hidden"
+      style={{ borderLeft: "1px solid #1a2235", borderRight: "1px solid #1a2235" }}>
+      {units.length === 0
+        ? <span className="text-[10px] text-gray-800 select-none">{isMySlot ? "— déposer ici —" : "— vide —"}</span>
+        : units.map(card => (
+            <div key={card.instanceId} className="h-4/5 shrink-0" style={{ width: 52 }}>
+              <GameCard card={card} zone={isMySlot ? "bf" : "bf-opp"} bfIndex={bf.id}
+                isMe={isMySlot} size="fill"
+                onTap={isMySlot ? onCardTap : undefined}
+                onLongPress={isMySlot ? onCardLongPress : undefined} />
+            </div>
+          ))
+      }
+      {hasCombat && (
+        <button onClick={() => onResolveCombat(bf.id)}
+          className="absolute bottom-1 right-1 px-2 py-0.5 rounded text-[9px] font-bold text-red-200 z-20"
+          style={{ background: "#7f1d1d" }}>⚔️ Combat</button>
+      )}
+    </div>
+  );
+}
+
+// ── Ancien composant conservé mais non utilisé ─────────────────────────────────
 function BattlefieldZone({ bf, myPlayerIndex, isMe, onCardTap, onCardLongPress, onDrop, onResolveCombat }) {
   const [over, setOver] = useState(false);
   const myUnits = bf.units[myPlayerIndex] || [];
@@ -874,6 +938,88 @@ function Board({ room: initialRoom, mySocketId, code }) {
     );
   };
 
+  // ── Zone row helper (108px, utilisée pour OPP et ME) ──
+  const ZoneRow = ({ p, isMeRow }) => {
+    const runes = p?.runeHand || [];
+
+    const runeDeckCell = (
+      <RiftCell key="rdeck" label="R.Deck" accent="blue" className="shrink-0" style={{ width: 79 }}
+        onClick={undefined}>
+        <CardBack className="w-[42px] h-[58px]" rune />
+        <span className="absolute bottom-0.5 text-[8px] text-blue-400/60">{p?.runeDeckSize ?? 0}</span>
+      </RiftCell>
+    );
+    const runesCell = (
+      <RiftCell key="runes" label="Runes" accent="blue" className="flex-[416] min-w-0">
+        <div className="flex h-full w-full items-center gap-px p-1 overflow-hidden">
+          {Array.from({ length: Math.max(6, runes.length) }).map((_, i) => {
+            const card = runes[i];
+            if (!card) return <div key={i} className="flex-1 h-full rounded border border-dashed border-blue-900/20" />;
+            return (
+              <div key={card.instanceId} className="flex-1 h-full min-w-0 rounded overflow-hidden border border-blue-700/40">
+                {isMeRow
+                  ? <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+                  : <CardBack className="w-full h-full" rune />
+                }
+              </div>
+            );
+          })}
+        </div>
+      </RiftCell>
+    );
+    const baseCell = (
+      <div key="base" className="flex-[537] min-w-0"
+        onDragOver={isMeRow ? e => e.preventDefault() : undefined}
+        onDrop={isMeRow ? e => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); } : undefined}>
+        <RiftCell label="Base" className="h-full w-full">
+          <StackedCards cards={p?.field || []} cardW={40} renderCard={c =>
+            <GameCard card={c} zone={isMeRow ? "field" : "opp-field"} isMe={isMeRow} size="fill"
+              onTap={isMeRow ? onCardTap : undefined} onLongPress={isMeRow ? onCardLongPress : undefined} />
+          } />
+        </RiftCell>
+      </div>
+    );
+    const legendCell = (
+      <RiftCell key="legend" label="Legend" accent="amber" className="shrink-0" style={{ width: 79 }}
+        onClick={() => p?.legendCard && setZoom(p.legendCard)}>
+        {p?.legendCard
+          ? <GameCard card={p.legendCard} zone={isMeRow ? "legend" : "opp-legend"} isMe={false} size="fill" className="w-[42px] h-[58px]" />
+          : <span className="text-amber-500/40 text-lg">♛</span>}
+      </RiftCell>
+    );
+    const champCell = (
+      <RiftCell key="champ" label="Champion" accent="purple" className="shrink-0" style={{ width: 79 }}>
+        <StackedCards cards={p?.champion || []} cardW={42} renderCard={c =>
+          <GameCard card={c} zone={isMeRow ? "champion" : "opp-champion"} isMe={isMeRow} size="fill"
+            onTap={isMeRow ? onCardTap : undefined} onLongPress={isMeRow ? onCardLongPress : undefined} />
+        } />
+      </RiftCell>
+    );
+    const deckCell = (
+      <RiftCell key="deck" label="Deck" className="shrink-0" style={{ width: 79 }}
+        onClick={isMeRow && isMyTurn ? () => send({ type: "DRAW" }) : undefined}>
+        <CardBack className="w-[42px] h-[58px]" />
+        <span className="absolute bottom-0.5 text-[8px] text-white/30">{p?.deckSize ?? 0}</span>
+      </RiftCell>
+    );
+    const trashCell = (
+      <RiftCell key="trash" label="Défausse" className="shrink-0" style={{ width: 79 }}
+        onClick={() => setZoneViewer({ title: isMeRow ? "Ma défausse" : "Défausse adv.", cards: p?.graveyard || [], isMe: isMeRow })}>
+        {p?.graveyard?.length > 0
+          ? <GameCard card={p.graveyard[p.graveyard.length - 1]} zone="gy" isMe={false} size="fill" className="w-[42px] h-[58px]" />
+          : <span className="text-[9px] text-white/20">{p?.graveyardSize ?? 0}</span>}
+      </RiftCell>
+    );
+
+    // Ordre ME: RunesDeck | Runes | Base | Legend | Champion | Deck | Trash
+    // Ordre OPP (miroir): Trash | Deck | Champion | Legend | Base | Runes | RunesDeck
+    const cells = isMeRow
+      ? [runeDeckCell, runesCell, baseCell, legendCell, champCell, deckCell, trashCell]
+      : [trashCell, deckCell, champCell, legendCell, baseCell, runesCell, runeDeckCell];
+
+    return <div className="flex h-full w-full gap-px">{cells}</div>;
+  };
+
   return (
     <div className="fixed inset-0 overflow-hidden select-none flex flex-col" style={{ background: "#0a0f1a" }}>
 
@@ -899,43 +1045,64 @@ function Board({ room: initialRoom, mySocketId, code }) {
         <button onClick={() => setGameMenu(true)} className="ml-2 text-gray-500 hover:text-white text-lg px-1">☰</button>
       </div>
 
-      {/* ══ ZONE ADVERSAIRE ══ */}
-      <div className="shrink-0 px-2 py-1" style={{ height: 72 }}>
-        <PlayerRow p={opp} isMe={false} flipped />
+      {/* ═══ ZONE ADVERSAIRE (h-50) : zones en haut, unités BF en bas ═══ */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Zones OPP — 108px */}
+        <div className="shrink-0 px-1" style={{ height: 108, borderBottom: "1px solid #1a2235" }}>
+          <ZoneRow p={opp} isMeRow={false} />
+        </div>
+        {/* Unités OPP sur les BF — flex-1 */}
+        <div className="flex-1 min-h-0 flex gap-px px-1 py-1">
+          {bfs.length > 0
+            ? bfs.map(bf => (
+                <BFUnitSlot key={bf.id} bf={bf} playerIndex={myIdx === 0 ? 1 : 0}
+                  isMySlot={false} myPlayerIndex={myIdx} />
+              ))
+            : <div className="flex-1 flex items-center justify-center text-[10px] text-gray-800">Aucun Battlefield</div>
+          }
+        </div>
       </div>
 
-      {/* ══ BATTLEFIELDS — zone dominante ══ */}
-      <div className="flex-1 min-h-0 px-2 py-1">
-        {bfs.length > 0 ? (
-          <div className="flex gap-2 h-full">
-            {bfs.map((bf) => (
-              <BattlefieldZone key={bf.id} bf={bf} myPlayerIndex={myIdx} isMe
-                onCardTap={onCardTap} onCardLongPress={onCardLongPress}
-                onDrop={handleDropToBF} onResolveCombat={handleResolveCombat} />
-            ))}
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-xs text-gray-700 border border-dashed rounded" style={{ borderColor: "#1a2235" }}>
-            Aucun Battlefield — les BF sont définis dans le deck
-          </div>
-        )}
+      {/* ═══ CARTE BATTLEFIELD CENTRALE — 92px ═══ */}
+      <div className="shrink-0 flex gap-px px-1" style={{ height: 92, borderTop: "1px solid #1a2235", borderBottom: "1px solid #1a2235" }}>
+        {bfs.length > 0
+          ? bfs.map(bf => (
+              <BFCenterCard key={bf.id} bf={bf} myPlayerIndex={myIdx} onDrop={handleDropToBF} />
+            ))
+          : <div className="flex-1 flex items-center justify-center text-[10px] text-gray-800">
+              Aucun Battlefield — glissez des cartes depuis la Base
+            </div>
+        }
       </div>
 
-      {/* ══ MES ZONES ══ */}
-      <div className="shrink-0 px-2 py-1" style={{ height: 72 }}>
-        <PlayerRow p={me} isMe />
-      </div>
-
-      {/* ══ MA MAIN ══ */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto items-end px-3 pb-2 pt-1 border-t"
-        style={{ height: 110, background: "#06090f", borderColor: "#1a2235" }}>
-        {(me?.hand || []).map((card) => (
-          <div key={card.instanceId} className="shrink-0 h-full cursor-pointer hover:scale-105 transition-transform origin-bottom"
-            onClick={() => setMenu({ card, zone: "hand", bfIndex: null })}>
-            <GameCard card={card} zone="hand" isMe size="fill" className="h-full w-auto" />
-          </div>
-        ))}
-        {!me?.hand?.length && <span className="text-sm text-gray-700 self-center px-2">Main vide</span>}
+      {/* ═══ MA ZONE (h-50) : unités BF en haut, zones + main en bas ═══ */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Mes unités sur les BF — flex-1 */}
+        <div className="flex-1 min-h-0 flex gap-px px-1 py-1">
+          {bfs.length > 0
+            ? bfs.map(bf => (
+                <BFUnitSlot key={bf.id} bf={bf} playerIndex={myIdx}
+                  isMySlot onCardTap={onCardTap} onCardLongPress={onCardLongPress}
+                  onResolveCombat={handleResolveCombat} myPlayerIndex={myIdx} />
+              ))
+            : <div className="flex-1" />
+          }
+        </div>
+        {/* Mes zones — 108px */}
+        <div className="shrink-0 px-1" style={{ height: 108, borderTop: "1px solid #1a2235" }}>
+          <ZoneRow p={me} isMeRow />
+        </div>
+        {/* Ma main — 62px */}
+        <div className="shrink-0 flex gap-1.5 overflow-x-auto items-end px-3 pb-1 pt-1"
+          style={{ height: 62, borderTop: "1px solid #1a2235", background: "#06090f" }}>
+          {(me?.hand || []).map(card => (
+            <div key={card.instanceId} className="shrink-0 h-full cursor-pointer hover:scale-105 transition-transform origin-bottom"
+              onClick={() => setMenu({ card, zone: "hand", bfIndex: null })}>
+              <GameCard card={card} zone="hand" isMe size="fill" className="h-full w-auto" />
+            </div>
+          ))}
+          {!me?.hand?.length && <span className="text-xs text-gray-700 self-center px-2">Main vide</span>}
+        </div>
       </div>
 
       {/* ══ BARRE D'ACTIONS ══ */}
