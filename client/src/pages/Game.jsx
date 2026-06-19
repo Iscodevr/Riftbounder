@@ -763,97 +763,145 @@ function Board({ room: initialRoom, mySocketId, code }) {
     } />
   );
 
-  const ROW = "h-[68px]";
-  const SM = "w-[52px] shrink-0";
+  // Landscape detection
+  const [isLandscape, setIsLandscape] = useState(() => window.innerWidth > window.innerHeight);
+  useEffect(() => {
+    const check = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    window.addEventListener("resize", check);
+    screen.orientation?.lock?.("landscape").catch(() => {});
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Tailles fixes calquées sur les proportions tcg-arena
+  const NARROW = "w-[44px] shrink-0"; // deck, legend, champion, trash
+  const CARD_SM = "w-[28px] h-[40px]";
+
+  // Section horizontale d'un joueur (une ligne de zones)
+  const PlayerRow = ({ p, isMe: pIsMe, flipped = false }) => {
+    const runes = p?.runeHand || [];
+    const runeSlots = Array.from({ length: Math.max(6, runes.length) });
+
+    const deckCell = (
+      <RiftCell key="deck" label="Deck" className={NARROW}
+        onClick={pIsMe && isMyTurn ? () => send({ type: "DRAW" }) : undefined}>
+        <CardBack className={CARD_SM} />
+        <span className="text-[8px] text-white/40 absolute bottom-0.5">{p?.deckSize ?? 0}</span>
+      </RiftCell>
+    );
+    const legendCell = (
+      <RiftCell key="legend" label="Legend" accent="amber" className={NARROW}
+        onClick={() => p?.legendCard && setZoom(p.legendCard)}>
+        {p?.legendCard
+          ? <GameCard card={p.legendCard} zone={pIsMe ? "legend" : "opp-legend"} isMe={false} size="fill" className={CARD_SM} />
+          : <span className="text-amber-500/50 text-base">♛</span>}
+      </RiftCell>
+    );
+    const champCell = (
+      <RiftCell key="champ" label="Champion" accent="purple" className={NARROW}>
+        <StackedCards cards={p?.champion || []} cardW={26} renderCard={(c) =>
+          <GameCard card={c} zone={pIsMe ? "champion" : "opp-champion"} isMe={pIsMe} size="fill"
+            onTap={pIsMe ? onCardTap : undefined} onLongPress={pIsMe ? onCardLongPress : undefined} />
+        } />
+      </RiftCell>
+    );
+    const baseCell = (
+      <div key="base" className="flex-1 relative min-w-0"
+        onDragOver={pIsMe ? (e) => e.preventDefault() : undefined}
+        onDrop={pIsMe ? (e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); } : undefined}>
+        <RiftCell label="Base" className="h-full w-full">
+          <StackedCards cards={p?.field || []} cardW={28} renderCard={(c) =>
+            <GameCard card={c} zone={pIsMe ? "field" : "opp-field"} isMe={pIsMe} size="fill"
+              onTap={pIsMe ? onCardTap : undefined} onLongPress={pIsMe ? onCardLongPress : undefined} />
+          } />
+        </RiftCell>
+      </div>
+    );
+    const runesCell = (
+      <RiftCell key="runes" label="Runes" accent="blue" className="flex-1 min-w-0">
+        <div className="flex h-full w-full items-center gap-px p-0.5 overflow-hidden">
+          {runeSlots.map((_, i) => {
+            const card = runes[i];
+            if (!card) return <div key={i} className="flex-1 h-full rounded border border-dashed border-blue-900/20 shrink-0 min-w-[20px]" />;
+            if (!pIsMe) return (
+              <div key={card.instanceId} className="flex-1 h-full min-w-[20px] rounded border border-blue-800/30 bg-blue-950/20 flex items-center justify-center shrink-0">
+                <span className="text-[8px] text-blue-800">◆</span>
+              </div>
+            );
+            return (
+              <div key={card.instanceId} className="flex-1 h-full min-w-[20px] shrink-0 rounded overflow-hidden border border-blue-700/40">
+                <GameCard card={card} zone="runeHand" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
+              </div>
+            );
+          })}
+        </div>
+      </RiftCell>
+    );
+    const runedeckCell = (
+      <RiftCell key="runedeck" label="R.Deck" accent="blue" className={NARROW}>
+        <CardBack className={CARD_SM} rune />
+        <span className="text-[8px] text-blue-300/50 absolute bottom-0.5">{p?.runeDeckSize ?? 0}</span>
+      </RiftCell>
+    );
+    const trashCell = (
+      <RiftCell key="trash" label="Trash" className={NARROW}
+        onClick={() => setZoneViewer({ title: pIsMe ? "Ma défausse" : "Défausse adv.", cards: p?.graveyard || [], isMe: pIsMe })}>
+        {p?.graveyard?.length > 0
+          ? <GameCard card={p.graveyard[p.graveyard.length - 1]} zone={pIsMe ? "gy" : "opp-gy"} isMe={false} size="fill" className={CARD_SM} />
+          : <span className="text-[8px] text-white/20">{p?.graveyardSize ?? 0}</span>}
+      </RiftCell>
+    );
+
+    // Ordre des zones — mirrored pour l'adversaire (flipped)
+    const cells = flipped
+      ? [trashCell, runedeckCell, runesCell, baseCell, champCell, legendCell, deckCell]
+      : [deckCell, legendCell, champCell, baseCell, runesCell, runedeckCell, trashCell];
+
+    return (
+      <div className="flex gap-0.5 h-full w-full">
+        {cells}
+      </div>
+    );
+  };
+
+  if (!isLandscape) return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4" style={{ background: "#0a0f1a" }}>
+      <div className="text-4xl text-gray-600" style={{ transform: "rotate(90deg)" }}>⟳</div>
+      <p className="text-gray-500 text-sm">Tourne ton téléphone pour jouer</p>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 bg-gray-950 overflow-hidden select-none flex flex-col" style={{ touchAction: "manipulation" }}>
+    <div className="fixed inset-0 overflow-hidden select-none flex flex-col" style={{ background: "#0a0f1a", touchAction: "manipulation" }}>
 
-      {/* ══ Barre top ══ */}
-      <div className={`shrink-0 flex items-center gap-2 px-3 border-b h-[36px]
-        ${isMyTurn ? "bg-green-950/70 border-green-900/60" : "bg-gray-900 border-gray-800"}`}>
-        <span className="text-sm font-black text-gray-400">{opp?.score ?? 0}</span>
-        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      {/* ══ TOP BAR ══ */}
+      <div className="shrink-0 flex items-center gap-2 px-3 h-[30px] border-b" style={{ background: "#06090f", borderColor: "#1a2235" }}>
+        <span className="text-xs font-bold text-gray-500">{opp?.score ?? 0}/8</span>
+        <div className="w-16 h-1 bg-gray-800 rounded-full overflow-hidden">
           <div className="h-full bg-gray-500 rounded-full" style={{ width: `${Math.min((opp?.score ?? 0) / 8, 1) * 100}%` }} />
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${isMyTurn ? "bg-green-400" : "bg-gray-600"}`} />
-          <span className="text-gray-600 font-mono text-[10px]">{code} T{room.turn ?? 1}</span>
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${isMyTurn ? "bg-green-900/60 text-green-300" : "bg-gray-800/50 text-gray-600"}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${isMyTurn ? "bg-green-400" : "bg-gray-600"}`} />
+          T{room.turn ?? 1} {isMyTurn ? "— ton tour" : "— adversaire"}
         </div>
-        <span className="text-blue-400 font-bold text-xs">⚡{me?.energy ?? 0}</span>
-        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <span className="text-[10px] text-blue-400 font-bold">⚡{me?.energy ?? 0}</span>
+        <span className="text-[10px] text-gray-700 font-mono hidden sm:block">{code}</span>
+        <div className="flex-1" />
+        <div className="w-16 h-1 bg-gray-800 rounded-full overflow-hidden">
           <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min((me?.score ?? 0) / 8, 1) * 100}%` }} />
         </div>
-        <span className="text-sm font-black text-yellow-400">{me?.score ?? 0}</span>
-        <button onClick={() => setGameMenu(true)} className="text-gray-400 hover:text-white text-lg leading-none ml-1 px-1">
-          ☰
-        </button>
+        <span className="text-xs font-bold text-yellow-400">{me?.score ?? 0}/8</span>
+        <button onClick={() => setGameMenu(true)} className="text-gray-500 hover:text-white ml-1 px-1">☰</button>
       </div>
 
-      {/* ══ Main adversaire — face cachée ══ */}
-      <div className="shrink-0 flex gap-1 overflow-x-auto px-2 py-1.5 bg-gray-900/60 border-b border-gray-800 h-[76px] items-center">
-        {(opp?.hand || []).map((card) => (
-          <GameCard key={card.instanceId} card={card} zone="opp-hand" isMe={false} size="fill"
-            className="w-[44px] h-full shrink-0" />
-        ))}
-        {!(opp?.hand?.length) && <span className="text-xs text-gray-700 px-2">— main adv. —</span>}
+      {/* ══ ZONE ADVERSAIRE ══ */}
+      <div className="shrink-0 px-1 pt-0.5 pb-px" style={{ height: "80px" }}>
+        <PlayerRow p={opp} isMe={false} flipped />
       </div>
 
-      {/* ══ Indicateur de tour ══ */}
-      <div className={`shrink-0 text-center text-xs font-bold py-0.5 ${isMyTurn ? "bg-green-700/60 text-green-200" : "bg-gray-800/60 text-gray-500"}`}>
-        {isMyTurn ? "✅ TON TOUR" : "⏳ Tour adversaire"}
-      </div>
-
-      {/* ══ Zone adversaire — rotate 180° (vue depuis l'adversaire) ══ */}
-      {/* DOM order: row closest to BF first → après rotation il apparaît visuellement en bas (proche BF) */}
-      <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5" style={{ transform: "rotate(180deg)" }}>
-
-        {/* DOM row 1 → visuel bas après rotation : Main Deck | Base | Champion | Legend */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <RiftCell label="Main Deck" className={SM}>
-            <CardBack className="w-[34px] h-[44px]" />
-            <span className="text-[9px] text-white/50 absolute bottom-0.5">{opp?.deckSize ?? 0}</span>
-          </RiftCell>
-          <RiftCell label="Base" className="flex-1">
-            <StackedCards cards={opp?.field || []} renderCard={(c) =>
-              <GameCard card={c} zone="opp-field" isMe={false} size="fill" />
-            } />
-          </RiftCell>
-          <RiftCell label="Champion" accent="purple" className="flex-1">
-            <StackedCards cards={opp?.champion || []} renderCard={(c) =>
-              <GameCard card={c} zone="opp-champion" isMe={false} size="fill" />
-            } />
-          </RiftCell>
-          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => opp?.legendCard && setZoom(opp.legendCard)}>
-            {opp?.legendCard
-              ? <GameCard card={opp.legendCard} zone="opp-legend" isMe={false} size="fill" className="w-[36px] h-[50px]" />
-              : <span className="text-base text-amber-500/60">♛</span>}
-          </RiftCell>
-        </div>
-
-        {/* DOM row 3 → visuel haut après rotation : Trash | Runes | Runes Deck */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <RiftCell label="Trash" className={SM}
-            onClick={() => setZoneViewer({ title: "Défausse adv.", cards: opp?.graveyard || [], isMe: false })}>
-            {(opp?.graveyard?.length > 0)
-              ? <GameCard card={opp.graveyard[opp.graveyard.length - 1]} zone="opp-gy" isMe={false} size="fill" className="w-[34px] h-[44px]" />
-              : <span className="text-[9px] text-white/20">0</span>}
-            <span className="text-[9px] text-white/50 absolute bottom-0.5">{opp?.graveyardSize ?? 0}</span>
-          </RiftCell>
-          <RiftCell label="Runes" accent="blue" className="flex-1">
-            <InlineRunes runeHand={opp?.runeHand || []} isMe={false} />
-          </RiftCell>
-          <RiftCell label="Runes Deck" accent="blue" className={SM}>
-            <CardBack className="w-[34px] h-[44px]" rune />
-            <span className="text-[9px] text-blue-300/60 absolute bottom-0.5">{opp?.runeDeckSize ?? 0}</span>
-          </RiftCell>
-        </div>
-      </div>
-
-      {/* ══ Battlefields partagés ══ */}
-      <div className="shrink-0 px-1.5 py-0.5">
+      {/* ══ BATTLEFIELDS ══ */}
+      <div className="shrink-0 px-1 py-0.5" style={{ height: "78px" }}>
         {bfs.length > 0 ? (
-          <div className="flex gap-1 h-[80px]">
+          <div className="flex gap-1 h-full">
             {bfs.map((bf) => (
               <BattlefieldZone key={bf.id} bf={bf} myPlayerIndex={myIdx} isMe
                 onCardTap={onCardTap} onCardLongPress={onCardLongPress}
@@ -861,87 +909,44 @@ function Board({ room: initialRoom, mySocketId, code }) {
             ))}
           </div>
         ) : (
-          <div className="h-[20px] flex items-center justify-center text-[9px] text-gray-700 border border-dashed border-gray-800 rounded">
-            Aucun Battlefield
+          <div className="h-full flex items-center justify-center text-[9px] text-gray-700 border border-dashed border-gray-800 rounded">
+            Aucun Battlefield — glisser les unités depuis la Base
           </div>
         )}
       </div>
 
-      {/* ══ Zone moi : 3 lignes ══ */}
-      <div className="shrink-0 flex flex-col gap-0.5 px-1.5 py-0.5">
-
-        {/* Moi ligne 1 (proche BF) : Main Deck | Base | Champion | Legend */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <RiftCell label="Main Deck" className={SM} onClick={() => isMyTurn && send({ type: "DRAW" })}>
-            <CardBack className="w-[34px] h-[44px]" />
-            <span className="text-[9px] text-white/50 absolute bottom-0.5">{me?.deckSize ?? 0}</span>
-          </RiftCell>
-          <div onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); if (drag.card) handleDrop("field")(drag.card, drag.fromZone, drag.bfIndex); }}
-            className="flex-1 relative">
-            <RiftCell label="Base" className="h-full w-full">
-              <StackedCards cards={me?.field || []} renderCard={(c) =>
-                <GameCard card={c} zone="field" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
-              } />
-            </RiftCell>
-          </div>
-          <RiftCell label="Champion" accent="purple" className="flex-1">
-            <StackedCards cards={me?.champion || []} renderCard={(c) =>
-              <GameCard card={c} zone="champion" isMe size="fill" onTap={onCardTap} onLongPress={onCardLongPress} />
-            } />
-          </RiftCell>
-          <RiftCell label="Legend" accent="amber" className={SM} onClick={() => me?.legendCard && setZoom(me.legendCard)}>
-            {me?.legendCard
-              ? <GameCard card={me.legendCard} zone="legend" isMe={false} size="fill" className="w-[36px] h-[50px]" />
-              : <span className="text-base text-amber-500/60">♛</span>}
-          </RiftCell>
-        </div>
-
-        {/* Moi ligne 3 (proche main) : RuneDeck | Runes | Trash */}
-        <div className={`flex gap-0.5 ${ROW}`}>
-          <RiftCell label="Runes Deck" accent="blue" className={SM}>
-            <CardBack className="w-[34px] h-[44px]" rune />
-            <span className="text-[9px] text-blue-300/60 absolute bottom-0.5">{me?.runeDeckSize ?? 0}</span>
-          </RiftCell>
-          <RiftCell label="Runes" accent="blue" className="flex-1">
-            <InlineRunes runeHand={me?.runeHand || []} isMe />
-          </RiftCell>
-          <RiftCell label="Trash" className={SM}
-            onClick={() => setZoneViewer({ title: "Ma défausse", cards: me?.graveyard || [], isMe: true })}>
-            {(me?.graveyard?.length > 0)
-              ? <GameCard card={me.graveyard[me.graveyard.length - 1]} zone="gy" isMe={false} size="fill" className="w-[34px] h-[44px]" />
-              : <span className="text-[9px] text-white/20">0</span>}
-            <span className="text-[9px] text-white/50 absolute bottom-0.5">{me?.graveyardSize ?? 0}</span>
-          </RiftCell>
-        </div>
+      {/* ══ MES ZONES ══ */}
+      <div className="shrink-0 px-1 pt-px pb-0.5" style={{ height: "80px" }}>
+        <PlayerRow p={me} isMe />
       </div>
 
-      {/* ══ Ma main — flex-1 ══ */}
-      <div className="flex-1 flex gap-1 overflow-x-auto px-2 py-2 bg-gray-900/80 border-t border-gray-700 items-center min-h-[100px]">
+      {/* ══ MA MAIN ══ */}
+      <div className="flex-1 flex gap-1.5 overflow-x-auto px-2 py-1.5 items-center border-t min-h-[80px]"
+        style={{ background: "#06090f", borderColor: "#1a2235" }}>
         {(me?.hand || []).map((card) => (
           <GameCard key={card.instanceId} card={card} zone="hand" isMe size="fill"
             className="w-[52px] h-full shrink-0"
             onTap={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })}
             onLongPress={(c, z) => setMenu({ card: c, zone: z, bfIndex: null })} />
         ))}
-        {!(me?.hand?.length) && <span className="text-sm text-gray-700 px-2">Main vide</span>}
+        {!me?.hand?.length && <span className="text-sm text-gray-700 px-2">Main vide</span>}
       </div>
 
-      {/* ══ Barre d'actions ══ */}
-      <div className="shrink-0 flex items-center gap-2 px-3 bg-gray-900 border-t border-gray-800 h-[44px]">
+      {/* ══ BARRE D'ACTIONS ══ */}
+      <div className="shrink-0 flex items-center gap-2 px-3 h-[34px] border-t" style={{ background: "#06090f", borderColor: "#1a2235" }}>
         <button onClick={() => send({ type: "FIN_TOUR" })} disabled={!isMyTurn}
-          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${isMyTurn ? "bg-yellow-700/40 text-yellow-300 hover:bg-yellow-700/70" : "text-gray-700 cursor-not-allowed"}`}>
-          ■ Fin
+          className={`px-3 py-1 rounded text-xs font-bold transition-colors ${isMyTurn ? "bg-yellow-800/50 text-yellow-300 hover:bg-yellow-700/60" : "text-gray-700 cursor-not-allowed"}`}>
+          Fin du tour
         </button>
         <button onClick={() => isMyTurn && setTokenPicker(true)} disabled={!isMyTurn}
-          className="text-sm text-gray-500 hover:text-gray-300 disabled:opacity-30">🪙</button>
+          className="text-xs text-gray-600 disabled:opacity-30 hover:text-gray-400">🪙</button>
         <button onClick={() => setZoneViewer({ title: "Mes banissements", cards: me?.banishment || [], isMe: false })}
-          className="text-xs text-gray-700 hover:text-gray-500">🚫{me?.banishmentSize ?? 0}</button>
+          className="text-[10px] text-gray-700 hover:text-gray-500">🚫{me?.banishmentSize ?? 0}</button>
         <div className="flex-1" />
         <GameLog log={room.log || []} myPlayerIndex={myIdx} />
       </div>
 
-      {/* ══ Toast erreur ══ */}
+      {/* ══ TOAST ERREUR ══ */}
       {error && (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-red-900 text-red-200 text-xs px-4 py-2 rounded-xl z-50 shadow-lg whitespace-nowrap">
           {error}
@@ -953,29 +958,24 @@ function Board({ room: initialRoom, mySocketId, code }) {
           <div className="bg-gray-900 border border-gray-700 rounded-t-2xl w-full max-w-sm p-4 space-y-2" onClick={e => e.stopPropagation()}>
             <p className="text-xs text-gray-500 text-center pb-1">Menu partie — {code}</p>
             <button onClick={() => { toggleFullscreen(); setGameMenu(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800 transition-colors">
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800">
               <span className="text-lg">{isFullscreen ? "⊡" : "⛶"}</span>
               {isFullscreen ? "Quitter le plein écran" : "Plein écran"}
             </button>
             <button onClick={() => { toggleLang(); setGameMenu(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800 transition-colors">
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white hover:bg-gray-800">
               <span className="text-lg">{lang === "fr" ? "🇫🇷" : "🇬🇧"}</span>
               Langue : {lang === "fr" ? "Français" : "English"}
             </button>
-            <button onClick={() => { navigate("/decks"); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-yellow-400 hover:bg-gray-800 transition-colors">
-              <span className="text-lg">🚪</span>
-              Quitter la partie
+            <button onClick={() => navigate("/decks")}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-yellow-400 hover:bg-gray-800">
+              <span className="text-lg">🚪</span>Quitter la partie
             </button>
             <button onClick={() => { logout(); navigate("/login"); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400 hover:bg-gray-800 transition-colors">
-              <span className="text-lg">⏻</span>
-              Déconnexion
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400 hover:bg-gray-800">
+              <span className="text-lg">⏻</span>Déconnexion
             </button>
-            <button onClick={() => setGameMenu(false)}
-              className="w-full py-3 text-sm text-gray-500 hover:text-gray-300 transition-colors">
-              Annuler
-            </button>
+            <button onClick={() => setGameMenu(false)} className="w-full py-3 text-sm text-gray-500 hover:text-gray-300">Annuler</button>
           </div>
         </div>
       )}
@@ -990,8 +990,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
       {zoneViewer && (
         <ZoneViewer title={zoneViewer.title} cards={zoneViewer.cards} isMe={zoneViewer.isMe}
           onAction={(a) => { send(a); setZoneViewer(null); }}
-          onClose={() => setZoneViewer(null)}
-          onZoom={(card) => setZoom(card)} />
+          onClose={() => setZoneViewer(null)} onZoom={(card) => setZoom(card)} />
       )}
       {tokenPicker && <TokenPicker onClose={() => setTokenPicker(false)} onPick={(card) => send({ type: "CREATE_TOKEN", card })} />}
     </div>
