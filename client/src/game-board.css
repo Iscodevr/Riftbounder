@@ -4,7 +4,7 @@
   --card-height: 14.5vh;
   --playmat-border: 0.5vh;
   --playmat-border-radius: 1vh;
-  --section-background-rgb: 80, 100, 180;
+  --section-background-rgb: 0, 0, 0;
 }
 
 /* ── Conteneur jeu ── */
@@ -37,6 +37,7 @@
 
 .player-section .background,
 .opponent-section .background {
+  background-color: rgb(8, 14, 28);
   background-size: cover;
   background-position: center;
   width: calc(100% + 32vh - var(--playmat-border) * 2) !important;
@@ -47,15 +48,8 @@
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   transition: background-image 0.5s;
-}
-
-.player-section .background::after,
-.opponent-section .background::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(5, 10, 20, 0.72);
-  border-radius: inherit;
+  /* Assombrir le fond pour rendre les zones lisibles */
+  filter: brightness(0.35);
 }
 
 /* ── justify-content-after = flex-end ── */
@@ -79,11 +73,11 @@
 }
 
 .board-section .blurred-background {
-  --blur: 0px;
-  background-color: rgba(var(--section-background-rgb), 0.2) !important;
+  --blur: 4px;
+  background-color: rgba(6, 10, 22, 0.72) !important;
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
-  outline: 0.1vh solid rgba(var(--section-background-rgb), 0.3);
+  outline: 0.15vh solid rgba(255, 255, 255, 0.1);
   border-radius: 1vh;
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -210,10 +204,3 @@
   border-color: #22c55e;
 }
 
-/* ── Couleur de fond par défaut des sections ── */
-.section-Mana { --section-background-rgb: 60, 80, 200; }
-.section-Base { --section-background-rgb: 100, 80, 50; }
-.section-B1, .section-B2, .section-B3 { --section-background-rgb: 150, 60, 60; }
-.section-Runes { --section-background-rgb: 60, 60, 80; }
-.section-Legend { --section-background-rgb: 180, 140, 30; }
-.section-Champion { --section-background-rgb: 120, 60, 180; }

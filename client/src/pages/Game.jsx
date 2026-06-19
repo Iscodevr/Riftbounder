@@ -1058,9 +1058,9 @@ function Board({ room: initialRoom, mySocketId, code }) {
     const runes = p?.runeHand || [];
 
     const runeDeckCell = (
-      <RiftCell key="rdeck" label="R.Deck" accent="blue" className="shrink-0" style={{ width: 79 }}
+      <RiftCell key="rdeck" label="R.Deck" accent="blue" className="shrink-0" style={{ width: "9vh", minWidth: 56, maxWidth: 90 }}
         onClick={undefined}>
-        <CardBack className="w-[42px] h-[58px]" rune />
+        <CardBack className="w-[5vh] h-[7vh]" rune />
         <span className="absolute bottom-0.5 text-[8px] text-blue-400/60">{p?.runeDeckSize ?? 0}</span>
       </RiftCell>
     );
@@ -1095,15 +1095,15 @@ function Board({ room: initialRoom, mySocketId, code }) {
       </div>
     );
     const legendCell = (
-      <RiftCell key="legend" label="Legend" accent="amber" className="shrink-0" style={{ width: 79 }}
+      <RiftCell key="legend" label="Legend" accent="amber" className="shrink-0" style={{ width: "9vh", minWidth: 56, maxWidth: 90 }}
         onClick={() => p?.legendCard && setZoom(p.legendCard)}>
         {p?.legendCard
-          ? <GameCard card={p.legendCard} zone={isMeRow ? "legend" : "opp-legend"} isMe={false} size="fill" className="w-[42px] h-[58px]" />
+          ? <GameCard card={p.legendCard} zone={isMeRow ? "legend" : "opp-legend"} isMe={false} size="fill" className="w-[5vh] h-[7vh]" />
           : <span className="text-amber-500/40 text-lg">♛</span>}
       </RiftCell>
     );
     const champCell = (
-      <RiftCell key="champ" label="Champion" accent="purple" className="shrink-0" style={{ width: 79 }}>
+      <RiftCell key="champ" label="Champion" accent="purple" className="shrink-0" style={{ width: "9vh", minWidth: 56, maxWidth: 90 }}>
         <StackedCards cards={p?.champion || []} cardW={42} renderCard={c =>
           <GameCard card={c} zone={isMeRow ? "champion" : "opp-champion"} isMe={isMeRow} size="fill"
             onTap={isMeRow ? onCardTap : undefined} onLongPress={isMeRow ? onCardLongPress : undefined} />
@@ -1111,17 +1111,17 @@ function Board({ room: initialRoom, mySocketId, code }) {
       </RiftCell>
     );
     const deckCell = (
-      <RiftCell key="deck" label="Deck" className="shrink-0" style={{ width: 79 }}
+      <RiftCell key="deck" label="Deck" className="shrink-0" style={{ width: "9vh", minWidth: 56, maxWidth: 90 }}
         onClick={isMeRow && isMyTurn ? () => send({ type: "DRAW" }) : undefined}>
-        <CardBack className="w-[42px] h-[58px]" />
+        <CardBack className="w-[5vh] h-[7vh]" />
         <span className="absolute bottom-0.5 text-[8px] text-white/30">{p?.deckSize ?? 0}</span>
       </RiftCell>
     );
     const trashCell = (
-      <RiftCell key="trash" label="Défausse" className="shrink-0" style={{ width: 79 }}
+      <RiftCell key="trash" label="Défausse" className="shrink-0" style={{ width: "9vh", minWidth: 56, maxWidth: 90 }}
         onClick={() => setZoneViewer({ title: isMeRow ? "Ma défausse" : "Défausse adv.", cards: p?.graveyard || [], isMe: isMeRow })}>
         {p?.graveyard?.length > 0
-          ? <GameCard card={p.graveyard[p.graveyard.length - 1]} zone="gy" isMe={false} size="fill" className="w-[42px] h-[58px]" />
+          ? <GameCard card={p.graveyard[p.graveyard.length - 1]} zone="gy" isMe={false} size="fill" className="w-[5vh] h-[7vh]" />
           : <span className="text-[9px] text-white/20">{p?.graveyardSize ?? 0}</span>}
       </RiftCell>
     );
@@ -1132,7 +1132,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
       ? [runeDeckCell, runesCell, baseCell, legendCell, champCell, deckCell, trashCell]
       : [trashCell, deckCell, champCell, legendCell, baseCell, runesCell, runeDeckCell];
 
-    return <div className="flex h-full w-full gap-px">{cells}</div>;
+    return <div className="flex h-full w-full gap-px overflow-hidden">{cells}</div>;
   };
 
   // ── helpers de rendu de section ──
@@ -1377,8 +1377,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
         {/* ── SECTION ADVERSAIRE (h-50, CSS rotate 180°) ── */}
         <div className="opponent-section flex flex-col w-full relative" style={{ height: "50%" }}>
-          <div className="background player-playmat absolute left-0 top-0 w-full h-full"
-            style={{ backgroundImage: "url(https://russeus.github.io/RB-TCG-Arena/Images/PM_Volibear-1.png)" }} />
+          <div className="background player-playmat absolute left-0 top-0 w-full h-full" />
           <div className="justify-content-after flex flex-col w-full h-full relative">
             {/* Board 38vh */}
             <div style={{ height: "38vh" }}>
@@ -1405,8 +1404,7 @@ function Board({ room: initialRoom, mySocketId, code }) {
 
         {/* ── MA SECTION (h-50, player-section current-player) ── */}
         <div className="player-section current-player flex flex-col w-full relative" style={{ height: "50%" }}>
-          <div className="background player-playmat absolute left-0 top-0 w-full h-full"
-            style={{ backgroundImage: "url(https://russeus.github.io/RB-TCG-Arena/Images/PM_Yasuo-1.png)" }} />
+          <div className="background player-playmat absolute left-0 top-0 w-full h-full" />
           <div className="justify-content-after flex flex-col w-full h-full relative">
             {/* Board 38vh */}
             <div style={{ height: "38vh" }}>
